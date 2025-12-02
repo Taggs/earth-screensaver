@@ -1,0 +1,39 @@
+{
+  "name": "earth-screensaver",
+  "version": "1.0.0",
+  "description": "Desktop globe screensaver with weather, day/night cycle, and news",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac"
+  },
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^39.2.4",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "cesium": "^1.113.0",
+    "suncalc": "^1.9.0",
+    "dotenv": "^16.3.1"
+  },
+  "build": {
+    "appId": "com.screensaver.earth",
+    "productName": "Earth Screensaver",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities"
+    },
+    "win": {
+      "target": "nsis"
+    }
+  }
+}
