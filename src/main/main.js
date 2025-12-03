@@ -105,16 +105,46 @@ ipcMain.handle('fetch-weather', async () => {
 
 // Handle news API requests
 ipcMain.handle('fetch-news', async (event, countryCode) => {
-  // NewsAPI.org - replace with your API key
-  const API_KEY = process.env.NEWS_API_KEY || 'YOUR_NEWS_API_KEY';
+  console.log('[Main Process] fetch-news called with countryCode:', countryCode);
+  
+  // WorldNewsAPI - replace with your API key
+  const API_KEY = process.env.WORLDNEWS_API_KEY || 'YOUR_WORLDNEWS_API_KEY';
+  console.log('[Main Process] API_KEY configured:', API_KEY !== 'YOUR_WORLDNEWS_API_KEY' ? 'Yes' : 'No (using placeholder)');
+  
+  const apiUrl = `https://api.worldnewsapi.com/search-news?api-key=${API_KEY}&source-country=${countryCode}`;
+  console.log('[Main Process] Full API URL:', apiUrl);
   
   try {
-    const response = await fetch(
-      `https://newsapi.org/v2/top-headlines?country=${countryCode}&apiKey=${API_KEY}`
-    );
-    return await response.json();
+    console.log('[Main Process] Making fetch request...');
+    const response = await fetch(apiUrl);
+    console.log('[Main Process] Response status:', response.status);
+    console.log('[Main Process] Response ok:', response.ok);
+    
+    const data = await response.json();
+    console.log('[Main Process] Response data:', data);
+    
+    // Transform WorldNewsAPI response to match expected format
+    if (data && data.news) {
+      const transformedData = {
+        status: 'ok',
+        totalResults: data.available || data.news.length,
+        articles: data.news.map(article => ({
+          title: article.title,
+          description: article.summary || article.text?.substring(0, 200) + '...',
+          source: { name: 'World News API' },
+          author: article.authors ? article.authors.join(', ') : 'Unknown',
+          publishedAt: article.publish_date,
+          url: article.url,
+          content: article.text
+        }))
+      };
+      console.log('[Main Process] Transformed response:', transformedData);
+      return transformedData;
+    }
+    
+    return data;
   } catch (error) {
-    console.error('News fetch failed:', error);
+    console.error('[Main Process] News fetch failed:', error);
     return null;
   }
 });

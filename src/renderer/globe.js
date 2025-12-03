@@ -135,23 +135,6 @@ function setupScene() {
   console.log('Scene setup completed');
 }
 
-// Initialize the app
-initializeApp();
-
-async function addBingMapsImagery() {
-  try {
-    const imageryProvider = await Cesium.IonImageryProvider.fromAssetId(3);
-    const imageryLayer = viewer.imageryLayers.addImageryProvider(imageryProvider);
-    
-    // Enhance color saturation and contrast for deeper colors
-    imageryLayer.saturation = 1.3; // Increase saturation by 30%
-    imageryLayer.contrast = 1.2;   // Increase contrast by 20%
-    imageryLayer.brightness = 0.85; // Slightly reduce brightness to deepen colors
-  } catch (error) {
-    console.error('Failed to load Bing Maps imagery:', error);
-  }
-}
-
 // Initialize the app when DOM is ready
 document.addEventListener('DOMContentLoaded', initializeApp);
 
@@ -552,9 +535,17 @@ let mouseDownX = 0;
 let mouseDownY = 0;
 let dragVelocity = 0;
 
+// News box dragging state (declared before canvas handlers)
+let isDraggingNewsBox = false;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+
 const canvas = viewer.canvas;
 
 canvas.addEventListener('mousedown', (e) => {
+  // Prevent globe interaction if news box is being dragged
+  if (isDraggingNewsBox) return;
+  
   isDragging = true;
   lastMouseX = e.clientX;
   lastMouseY = e.clientY;
@@ -606,6 +597,7 @@ function wasDragged(mouseUpX, mouseUpY) {
 // Country code mapping (simplified - expand as needed)
 const COUNTRY_CODES = {
   'United States': 'us',
+  'United States of America': 'us',
   'United Kingdom': 'gb',
   'Germany': 'de',
   'France': 'fr',
@@ -654,7 +646,11 @@ function resolveCountryCode(countryName, isoCode) {
   if (isoCode && isoCode.length === 2) {
     return isoCode.toLowerCase();
   }
-  return COUNTRY_CODES[countryName] || null;
+  const code = COUNTRY_CODES[countryName] || null;
+  if (!code) {
+    console.warn('[Country Mapping] No ISO code found for country:', countryName);
+  }
+  return code;
 }
 
 // Add GeoJSON country boundaries for hover highlighting
@@ -759,15 +755,32 @@ function setupCountryInteractionHandlers() {
     const entity = pickCountryEntity(click.position);
     console.log('[EarthScreensaver] Picked entity:', entity);
     
-    // If clicking the same highlighted entity, unhighlight it
+    // If clicking the same highlighted entity, show news
     if (highlightedEntity && highlightedEntity === entity) {
-      const original = originalStyleByEntity.get(highlightedEntity);
-      if (original) {
-        highlightedEntity.polygon.outlineColor = original.outlineColor;
-        highlightedEntity.polygon.outlineWidth = original.outlineWidth;
+      const countryLabel = entity.name || entity.properties?.ADMIN?.getValue();
+      
+      // Debug: Log all available properties to find the correct ISO code field
+      console.log('[News Debug] Entity properties:', entity.properties);
+      if (entity.properties) {
+        const allProps = {};
+        entity.properties._propertyNames?.forEach(propName => {
+          allProps[propName] = entity.properties[propName]?.getValue();
+        });
+        console.log('[News Debug] All entity property values:', allProps);
       }
-      highlightedEntity = null;
-      console.log('[EarthScreensaver] Unhighlighted country');
+      
+      const isoCode = entity.properties?.ISO_A2?.getValue();
+      console.log('[News Debug] Extracted isoCode:', isoCode);
+      
+      // Stop auto-rotation when showing news
+      autoRotate = false;
+      const autoRotateCheckbox = document.getElementById('autoRotateCheckbox');
+      if (autoRotateCheckbox) {
+        autoRotateCheckbox.checked = false;
+      }
+      
+      showNewsBox(countryLabel, isoCode);
+      console.log('[EarthScreensaver] Showing news for:', countryLabel);
       return;
     }
 
@@ -808,28 +821,88 @@ function setupCountryInteractionHandlers() {
 loadCountryBoundaries();
 
 // ============================================================================
-// NEWS MODAL
+// DRAGGABLE NEWS BOX
 // ============================================================================
-const newsModal = document.getElementById('newsModal');
-const countryNameEl = document.getElementById('countryName');
-const newsListEl = document.getElementById('newsList');
-const closeNewsBtn = document.getElementById('closeNews');
+const newsBox = document.getElementById('newsBox');
+const newsBoxTitle = document.getElementById('newsBoxTitle');
+const newsBoxContent = document.getElementById('newsBoxContent');
+const newsBoxClose = document.getElementById('newsBoxClose');
+const newsBoxHeader = document.getElementById('newsBoxHeader');
 
-async function showNewsModal(countryName, isoCode) {
-  countryNameEl.textContent = `${countryName} - Headlines`;
-  newsModal.classList.add('active');
+let currentNewsData = null;
+let currentView = 'feed'; // 'feed' or 'article'
 
-  const countryCode = resolveCountryCode(countryName, isoCode);
+// Draggable functionality
+newsBoxHeader.addEventListener('mousedown', (e) => {
+  if (e.target === newsBoxClose || e.target.tagName === 'A') return;
+  
+  isDraggingNewsBox = true;
+  dragOffsetX = e.clientX - newsBox.offsetLeft;
+  dragOffsetY = e.clientY - newsBox.offsetTop;
+  newsBox.style.cursor = 'grabbing';
+  e.preventDefault();
+  e.stopPropagation(); // Prevent globe rotation
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!isDraggingNewsBox) return;
+  
+  const newX = e.clientX - dragOffsetX;
+  const newY = e.clientY - dragOffsetY;
+  
+  // Keep within viewport bounds
+  const maxX = window.innerWidth - newsBox.offsetWidth;
+  const maxY = window.innerHeight - newsBox.offsetHeight;
+  
+  newsBox.style.left = Math.max(0, Math.min(newX, maxX)) + 'px';
+  newsBox.style.top = Math.max(0, Math.min(newY, maxY)) + 'px';
+  e.stopPropagation(); // Prevent globe rotation while dragging
+});
+
+document.addEventListener('mouseup', (e) => {
+  if (isDraggingNewsBox) {
+    isDraggingNewsBox = false;
+    newsBox.style.cursor = 'move';
+    e.stopPropagation(); // Prevent globe rotation after drag
+  }
+});
+
+// Close button
+newsBoxClose.addEventListener('click', () => {
+  hideNewsBox();
+});
+
+// Title click to open in browser
+newsBoxTitle.addEventListener('click', (e) => {
+  e.preventDefault();
+  if (currentNewsData && currentNewsData.countryCode) {
+    const newsUrl = `https://news.google.com/search?q=${encodeURIComponent(currentNewsData.countryName)}&hl=en-US&gl=US&ceid=US:en`;
+    window.open(newsUrl, '_blank');
+  }
+});
+
+async function showNewsBox(countryName, isoCode) {
+  console.log('[News Debug] showNewsBox called with:', { countryName, isoCode });
+  
+  newsBoxTitle.textContent = `${countryName} Top News`;
+  newsBox.classList.add('active');
+  currentView = 'feed';
+  currentNewsData = { countryName, isoCode, countryCode: resolveCountryCode(countryName, isoCode) };
+
+  const countryCode = currentNewsData.countryCode;
+  console.log('[News Debug] Resolved country code:', countryCode);
 
   // Check if country has no news coverage
   if (!countryCode) {
-    newsListEl.innerHTML = '<div class="loading">No News<br><br>News coverage is not available for this country.</div>';
+    console.log('[News Debug] No country code available');
+    newsBoxContent.innerHTML = '<div class="loading">No News<br><br>News coverage is not available for this country.</div>';
     return;
   }
 
-  newsListEl.innerHTML = '<div class="loading">Loading headlines...</div>';
+  newsBoxContent.innerHTML = '<div class="loading">Loading headlines...</div>';
 
   try {
+    console.log('[News Debug] Making API call for country:', countryCode);
     // Use Electron IPC if available, otherwise fallback to direct fetch
     let data;
     if (window.electronAPI) {
@@ -837,58 +910,151 @@ async function showNewsModal(countryName, isoCode) {
     } else {
       // Fallback for testing in browser
       data = { articles: [
-        { title: 'Sample headline 1', source: { name: 'Reuters' } },
-        { title: 'Sample headline 2', source: { name: 'AP' } }
+        { 
+          title: 'Sample headline 1', 
+          description: 'This is a sample description for testing purposes.',
+          source: { name: 'Reuters' },
+          author: 'Sample Author',
+          publishedAt: new Date().toISOString(),
+          url: 'https://example.com/article1'
+        },
+        { 
+          title: 'Sample headline 2', 
+          description: 'Another sample description to demonstrate the news feed layout.',
+          source: { name: 'AP' },
+          author: 'Another Author',
+          publishedAt: new Date().toISOString(),
+          url: 'https://example.com/article2'
+        }
       ]};
     }
 
+    console.log('[News Debug] API response:', data);
+
     // Check for API errors
     if (data && data.status === 'error') {
-      newsListEl.innerHTML = `<div class="loading">API Error: ${escapeHtml(data.message || 'Unable to fetch news')}<br><br>This may be due to API rate limits or authentication issues.</div>`;
+      console.log('[News Debug] API error received:', data);
+      newsBoxContent.innerHTML = `<div class="loading">API Error: ${escapeHtml(data.message || 'Unable to fetch news')}<br><br>This may be due to API rate limits or authentication issues.</div>`;
       return;
     }
 
     if (data && data.articles && data.articles.length > 0) {
-      newsListEl.innerHTML = data.articles
-        .slice(0, 10)
-        .map(article => `
-          <div class="news-item">
-            <h3>${escapeHtml(article.title)}</h3>
-            <span class="source">${escapeHtml(article.source?.name || 'Unknown')}</span>
-          </div>
-        `)
-        .join('');
+      console.log('[News Debug] Successfully loaded', data.articles.length, 'articles');
+      currentNewsData.articles = data.articles;
+      renderNewsFeed(data.articles);
     } else {
-      newsListEl.innerHTML = '<div class="loading">No headlines available for this country</div>';
+      console.log('[News Debug] No articles found in response');
+      newsBoxContent.innerHTML = '<div class="loading">No headlines available for this country</div>';
     }
   } catch (error) {
-    console.error('Failed to fetch news:', error);
-    newsListEl.innerHTML = '<div class="loading">Failed to load headlines.<br><br>Check your NewsAPI key in main.js</div>';
+    console.error('[News Debug] Failed to fetch news:', error);
+    newsBoxContent.innerHTML = '<div class="loading">Failed to load headlines.<br><br>Check your NewsAPI key in main.js</div>';
   }
 }
+
+function renderNewsFeed(articles) {
+  currentView = 'feed';
+  newsBoxContent.innerHTML = articles
+    .slice(0, 10)
+    .map((article, index) => {
+      const headline = escapeHtml(article.title);
+      const description = article.description ? escapeHtml(article.description) : '';
+      const source = escapeHtml(article.source?.name || 'Unknown');
+      const author = article.author ? escapeHtml(article.author) : '';
+      const publishedAt = article.publishedAt ? new Date(article.publishedAt).toLocaleDateString() : '';
+      
+      // Get first 2 lines of description
+      const descriptionLines = description.split('\n').slice(0, 2).join('\n');
+      
+      return `
+        <div class="news-article">
+          <h3 class="news-headline">${headline}</h3>
+          ${description ? `<p class="news-byline">${descriptionLines}</p>` : ''}
+          <p class="news-meta">${source}${author ? ` • ${author}` : ''}${publishedAt ? ` • ${publishedAt}` : ''}</p>
+          <a class="news-more" data-article-index="${index}">more →</a>
+        </div>
+      `;
+    })
+    .join('');
+
+  // Add click handlers for "more" links
+  document.querySelectorAll('.news-more').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const articleIndex = parseInt(e.target.dataset.articleIndex);
+      showArticle(articleIndex);
+    });
+  });
+}
+
+function showArticle(articleIndex) {
+  if (!currentNewsData || !currentNewsData.articles) return;
+  
+  const article = currentNewsData.articles[articleIndex];
+  currentView = 'article';
+  
+  const headline = escapeHtml(article.title);
+  const description = article.description ? escapeHtml(article.description) : '';
+  const content = article.content ? escapeHtml(article.content) : '';
+  const source = escapeHtml(article.source?.name || 'Unknown');
+  const author = article.author ? escapeHtml(article.author) : '';
+  const publishedAt = article.publishedAt ? new Date(article.publishedAt).toLocaleDateString() : '';
+  const url = article.url || '#';
+  
+  newsBoxContent.innerHTML = `
+    <a class="news-back">← Back to feed</a>
+    <div class="news-article">
+      <h3 class="news-headline">${headline}</h3>
+      ${description ? `<p class="news-byline">${description}</p>` : ''}
+      <p class="news-meta">${source}${author ? ` • ${author}` : ''}${publishedAt ? ` • ${publishedAt}` : ''}</p>
+      ${content ? `<p class="news-body">${content}</p>` : ''}
+      <a class="news-more" href="${url}" target="_blank">Read full article →</a>
+    </div>
+  `;
+  
+  // Add back button handler
+  document.querySelector('.news-back').addEventListener('click', (e) => {
+    e.preventDefault();
+    renderNewsFeed(currentNewsData.articles);
+  });
+}
+
+function hideNewsBox() {
+  newsBox.classList.remove('active');
+  currentNewsData = null;
+  currentView = 'feed';
+  
+  // Deselect all countries and restore auto-rotation
+  if (highlightedEntity && highlightedEntity.polygon) {
+    const original = originalStyleByEntity.get(highlightedEntity);
+    if (original) {
+      highlightedEntity.polygon.outlineColor = original.outlineColor;
+      highlightedEntity.polygon.outlineWidth = original.outlineWidth;
+      highlightedEntity.polygon.material = original.material;
+    }
+    highlightedEntity = null;
+  }
+  
+  // Resume auto-rotation
+  autoRotate = true;
+  const autoRotateCheckbox = document.getElementById('autoRotateCheckbox');
+  if (autoRotateCheckbox) {
+    autoRotateCheckbox.checked = true;
+  }
+}
+
+// ESC key handler to close news box
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && newsBox.classList.contains('active')) {
+    hideNewsBox();
+  }
+});
 
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
 }
-
-closeNewsBtn.addEventListener('click', () => {
-  newsModal.classList.remove('active');
-});
-
-newsModal.addEventListener('click', (e) => {
-  if (e.target === newsModal) {
-    newsModal.classList.remove('active');
-  }
-});
-
-// ESC to close modal
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    newsModal.classList.remove('active');
-  }
-});
 
 // ============================================================================
 // WEATHER OVERLAY (Cloud layer)
