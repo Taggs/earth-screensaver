@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Earth Screensaver</title>
-  <script src="https://cesium.com/downloads/cesiumjs/releases/1.113/Build/Cesium/Cesium.js"></script>
-  <link href="https://cesium.com/downloads/cesiumjs/releases/1.113/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <!-- Load Cesium from local node_modules instead of CDN for offline support -->
+  <script src="../node_modules/cesium/Build/Cesium/Cesium.js"></script>
+  <link href="../node_modules/cesium/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
     * {
       margin: 0;

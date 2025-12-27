@@ -61,10 +61,13 @@ function createWindow() {
     }
   });
 
-  // Dev tools in development
-  if (isDev) {
-    mainWindow.webContents.openDevTools();
-  }
+  // ALWAYS open dev tools for debugging
+  mainWindow.webContents.openDevTools();
+
+  // Log any console messages from renderer
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    console.log(`[Renderer] ${message} (${sourceId}:${line})`);
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;

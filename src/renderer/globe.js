@@ -41,6 +41,9 @@ const CONFIG = {
 // ============================================================================
 // INITIALIZATION
 // ============================================================================
+// Configure Cesium to use local assets
+window.CESIUM_BASE_URL = '../node_modules/cesium/Build/Cesium/';
+
 // Set initial token, will be updated asynchronously
 Cesium.Ion.defaultAccessToken = 'YOUR_CESIUM_ION_TOKEN';
 
