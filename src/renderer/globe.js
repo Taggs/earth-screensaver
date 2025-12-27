@@ -487,63 +487,59 @@ function wasDragged(mouseUpX, mouseUpY) {
 // ============================================================================
 // COUNTRY CLICK -> NEWS
 // ============================================================================
-// Country code mapping (simplified - expand as needed)
-const COUNTRY_CODES = {
-  'United States': 'us',
-  'United States of America': 'us',
-  'United Kingdom': 'gb',
-  'Germany': 'de',
-  'France': 'fr',
-  'Japan': 'jp',
-  'China': 'cn',
-  'India': 'in',
-  'Brazil': 'br',
-  'Australia': 'au',
-  'Canada': 'ca',
-  'Russia': 'ru',
-  'Italy': 'it',
-  'Spain': 'es',
-  'Mexico': 'mx',
-  'South Korea': 'kr',
-  'Netherlands': 'nl',
-  'Switzerland': 'ch',
-  'Sweden': 'se',
-  'Norway': 'no',
-  'Denmark': 'dk',
-  'Finland': 'fi',
-  'Poland': 'pl',
-  'Austria': 'at',
-  'Belgium': 'be',
-  'Portugal': 'pt',
-  'Greece': 'gr',
-  'Ireland': 'ie',
-  'New Zealand': 'nz',
-  'Singapore': 'sg',
-  'Israel': 'il',
-  'South Africa': 'za',
-  'Argentina': 'ar',
-  'Egypt': 'eg',
-  'Turkey': 'tr',
-  'Saudi Arabia': 'sa',
-  'United Arab Emirates': 'ae',
-  'Indonesia': 'id',
-  'Malaysia': 'my',
-  'Thailand': 'th',
-  'Philippines': 'ph',
-  'Vietnam': 'vn',
-  'Nigeria': 'ng',
-  'Kenya': 'ke'
+// ISO-3 to ISO-2 country code mapping (from GeoJSON id to NewsAPI country code)
+const ISO3_TO_ISO2 = {
+  'USA': 'us', 'GBR': 'gb', 'DEU': 'de', 'FRA': 'fr', 'JPN': 'jp',
+  'CHN': 'cn', 'IND': 'in', 'BRA': 'br', 'AUS': 'au', 'CAN': 'ca',
+  'RUS': 'ru', 'ITA': 'it', 'ESP': 'es', 'MEX': 'mx', 'KOR': 'kr',
+  'NLD': 'nl', 'CHE': 'ch', 'SWE': 'se', 'NOR': 'no', 'DNK': 'dk',
+  'FIN': 'fi', 'POL': 'pl', 'AUT': 'at', 'BEL': 'be', 'PRT': 'pt',
+  'GRC': 'gr', 'IRL': 'ie', 'NZL': 'nz', 'SGP': 'sg', 'ISR': 'il',
+  'ZAF': 'za', 'ARG': 'ar', 'EGY': 'eg', 'TUR': 'tr', 'SAU': 'sa',
+  'ARE': 'ae', 'IDN': 'id', 'MYS': 'my', 'THA': 'th', 'PHL': 'ph',
+  'VNM': 'vn', 'NGA': 'ng', 'KEN': 'ke', 'UKR': 'ua', 'SDN': 'sd',
+  'ROM': 'ro', 'HUN': 'hu', 'CZE': 'cz', 'BGR': 'bg', 'SRB': 'rs',
+  'HRV': 'hr', 'SVK': 'sk', 'SVN': 'si', 'LTU': 'lt', 'LVA': 'lv',
+  'EST': 'ee', 'PAK': 'pk', 'BGD': 'bd', 'IRN': 'ir', 'IRQ': 'iq',
+  'SYR': 'sy', 'LBN': 'lb', 'JOR': 'jo', 'YEM': 'ye', 'OMN': 'om',
+  'KWT': 'kw', 'QAT': 'qa', 'BHR': 'bh', 'COL': 'co', 'VEN': 've',
+  'CHL': 'cl', 'PER': 'pe', 'ECU': 'ec', 'BOL': 'bo', 'PRY': 'py',
+  'URY': 'uy', 'CUB': 'cu', 'DOM': 'do', 'PAN': 'pa', 'CRI': 'cr',
+  'GTM': 'gt', 'HND': 'hn', 'SLV': 'sv', 'NIC': 'ni', 'MAR': 'ma',
+  'DZA': 'dz', 'TUN': 'tn', 'LBY': 'ly', 'ETH': 'et', 'GHA': 'gh',
+  'CIV': 'ci', 'CMR': 'cm', 'UGA': 'ug', 'TZA': 'tz', 'AGO': 'ao',
+  'MOZ': 'mz', 'ZWE': 'zw', 'BWA': 'bw', 'NAM': 'na', 'ZMB': 'zm',
+  'MDG': 'mg', 'SEN': 'sn', 'MLI': 'ml', 'BFA': 'bf', 'NER': 'ne',
+  'TCD': 'td', 'SOM': 'so', 'LKA': 'lk', 'NPL': 'np', 'AFG': 'af',
+  'KAZ': 'kz', 'UZB': 'uz', 'TKM': 'tm', 'KGZ': 'kg', 'TJK': 'tj',
+  'MNG': 'mn', 'PRK': 'kp', 'MMR': 'mm', 'KHM': 'kh', 'LAO': 'la',
+  'BRN': 'bn', 'TWN': 'tw', 'HKG': 'hk', 'MAC': 'mo'
 };
 
-function resolveCountryCode(countryName, isoCode) {
-  if (isoCode && isoCode.length === 2) {
-    return isoCode.toLowerCase();
-  }
-  const code = COUNTRY_CODES[countryName] || null;
-  if (!code) {
+function resolveCountryCode(countryName, iso3Code) {
+  if (!iso3Code) {
     console.warn('[Country Mapping] No ISO code found for country:', countryName);
+    return null;
   }
-  return code;
+
+  // Clean ISO-3 code: remove numeric suffixes like "_2" from "GBR_2", "FRA_2"
+  // These suffixes appear in GeoJSON for territories/dependencies
+  const cleanIso3Code = iso3Code.split('_')[0];
+
+  // Try ISO-3 to ISO-2 conversion first
+  if (ISO3_TO_ISO2[cleanIso3Code]) {
+    return ISO3_TO_ISO2[cleanIso3Code];
+  }
+
+  // If ISO-3 code exists but not in our mapping, convert to lowercase 2-letter
+  // This is a fallback for countries we haven't mapped yet
+  if (cleanIso3Code.length === 3) {
+    console.warn('[Country Mapping] ISO-3 code not in mapping, attempting conversion:', cleanIso3Code, 'for', countryName);
+    return cleanIso3Code.substring(0, 2).toLowerCase();
+  }
+
+  console.warn('[Country Mapping] No ISO code found for country:', countryName);
+  return null;
 }
 
 // Add GeoJSON country boundaries for hover highlighting
@@ -577,6 +573,7 @@ async function loadCountryBoundaries() {
         if (entity.polygon && entity.polygon.hierarchy) {
           const coords = entity.polygon.hierarchy.getValue();
           const countryName = entity.name || entity.properties?.ADMIN?.getValue() || `Country ${j}`;
+          const countryId = entity.id || null; // Extract ISO-3 code from entity id (e.g., "UKR")
 
           // High Fix #5: Removed expensive nested loop debug code that was O(n*m)
           // Original debug code iterated through all property names for each entity
@@ -587,6 +584,7 @@ async function loadCountryBoundaries() {
           // Create manual entity in viewer.entities for reliable picking
           viewer.entities.add({
             name: countryName,
+            id: countryId, // Preserve the ISO-3 country code
             properties: entity.properties, // Preserve original properties
             polygon: {
               hierarchy: hierarchyPositions,
@@ -634,71 +632,33 @@ function setupCountryInteractionHandlers() {
   }
   countryInteractionHandler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
 
-  // Click to highlight country border
+  // Click to focus on country, stop rotation, and show news
   countryInteractionHandler.setInputAction((click) => {
     console.log('[EarthScreensaver] Click detected at position:', click.position);
-    
-    // Debug: Check raw pick result
-    const rawPick = viewer.scene.pick(click.position);
-    console.log('[EarthScreensaver] Raw pick result:', rawPick);
-    
-    if (rawPick?.id) {
-      console.log('[EarthScreensaver] Full picked ID details:', {
-        idType: typeof rawPick.id,
-        idKeys: Object.keys(rawPick.id),
-        name: rawPick.id.name,
-        hasPolygon: !!rawPick.id.polygon,
-        polygonType: typeof rawPick.id.polygon
-      });
-    }
-    
+
     const entity = pickCountryEntity(click.position);
     console.log('[EarthScreensaver] Picked entity:', entity);
-    
-    // If clicking the same highlighted entity, show news
-    if (highlightedEntity && highlightedEntity === entity) {
-      const countryLabel = entity.name || entity.properties?.ADMIN?.getValue();
-      
-      // Debug: Log all available properties to find the correct ISO code field
-      console.log('[News Debug] Entity properties:', entity.properties);
-      if (entity.properties) {
-        const allProps = {};
-        entity.properties._propertyNames?.forEach(propName => {
-          allProps[propName] = entity.properties[propName]?.getValue();
-        });
-        console.log('[News Debug] All entity property values:', allProps);
-      }
-      
-      const isoCode = entity.properties?.ISO_A2?.getValue();
-      console.log('[News Debug] Extracted isoCode:', isoCode);
-      
-      // Stop auto-rotation when showing news
-      autoRotate = false;
-      // Fix #7: Use cached DOM reference instead of querying
-      if (autoRotateCheckbox) {
-        autoRotateCheckbox.checked = false;
-      }
-      
-      showNewsBox(countryLabel, isoCode);
-      console.log('[EarthScreensaver] Showing news for:', countryLabel);
-      return;
-    }
 
-    // Restore previous entity's original style
-    if (highlightedEntity && highlightedEntity.polygon) {
-      const original = originalStyleByEntity.get(highlightedEntity);
-      if (original) {
-        highlightedEntity.polygon.outlineColor = original.outlineColor;
-        highlightedEntity.polygon.outlineWidth = original.outlineWidth;
-        highlightedEntity.polygon.material = original.material;
-        // Critical Fix #3: Clean up Map entry to prevent memory leak
-        originalStyleByEntity.delete(highlightedEntity);
-      }
-      highlightedEntity = null;
-    }
-
-    // Highlight new entity
+    // If clicked on a country
     if (entity && entity.polygon) {
+      const countryLabel = entity.name || entity.properties?.ADMIN?.getValue();
+      const iso3Code = entity.id; // ISO-3 code (e.g., "UKR", "USA")
+
+      console.log('[EarthScreensaver] Clicked on country:', countryLabel, 'ISO-3:', iso3Code);
+
+      // Restore previous entity's original style
+      if (highlightedEntity && highlightedEntity.polygon) {
+        const original = originalStyleByEntity.get(highlightedEntity);
+        if (original) {
+          highlightedEntity.polygon.outlineColor = original.outlineColor;
+          highlightedEntity.polygon.outlineWidth = original.outlineWidth;
+          highlightedEntity.polygon.material = original.material;
+          // Critical Fix #3: Clean up Map entry to prevent memory leak
+          originalStyleByEntity.delete(highlightedEntity);
+        }
+      }
+
+      // Highlight new entity
       if (!originalStyleByEntity.has(entity)) {
         originalStyleByEntity.set(entity, {
           outlineColor: entity.polygon.outlineColor,
@@ -712,9 +672,27 @@ function setupCountryInteractionHandlers() {
       entity.polygon.outlineColor = Cesium.Color.fromCssColorString('#C73521'); // Economist red
       entity.polygon.outlineWidth = 10; // Maximum practical outline width
       highlightedEntity = entity;
-      
-      const countryLabel = entity.name || entity.properties?.ADMIN?.getValue();
-      console.log('[EarthScreensaver] Clicked and highlighted:', countryLabel);
+
+      // Focus camera on country with more vertical (top-down) view
+      viewer.flyTo(entity, {
+        duration: 2.0, // 2 second flight
+        offset: new Cesium.HeadingPitchRange(
+          0,           // heading: 0 = north
+          -1.2,        // pitch: -1.2 radians = more vertical/top-down view (closer to -π/2)
+          3000000      // range: 3000km altitude
+        )
+      }).then(() => {
+        // After camera arrives, show news
+        showNewsBox(countryLabel, iso3Code);
+      });
+
+      // Stop auto-rotation immediately
+      autoRotate = false;
+      if (autoRotateCheckbox) {
+        autoRotateCheckbox.checked = false;
+      }
+
+      console.log('[EarthScreensaver] Focusing on and showing news for:', countryLabel);
     }
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 }
@@ -739,16 +717,35 @@ const newsCache = new Map();
 
 // High Fix #11: Define handlers outside to enable proper cleanup
 function handleNewsBoxDrag(e) {
-  const newX = e.clientX - dragOffsetX;
-  const newY = e.clientY - dragOffsetY;
+  if (!isDraggingNewsBox) return;
 
-  // Keep within viewport bounds
-  const maxX = window.innerWidth - newsBox.offsetWidth;
-  const maxY = window.innerHeight - newsBox.offsetHeight;
+  try {
+    const newX = e.clientX - dragOffsetX;
+    const newY = e.clientY - dragOffsetY;
 
-  newsBox.style.left = Math.max(0, Math.min(newX, maxX)) + 'px';
-  newsBox.style.top = Math.max(0, Math.min(newY, maxY)) + 'px';
-  e.stopPropagation(); // Prevent globe rotation while dragging
+    // Keep within viewport bounds with safe fallback values
+    const boxWidth = newsBox.offsetWidth || 400;
+    const boxHeight = newsBox.offsetHeight || 600;
+    const viewportWidth = window.innerWidth || 1920;
+    const viewportHeight = window.innerHeight || 1080;
+
+    const maxX = Math.max(0, viewportWidth - boxWidth);
+    const maxY = Math.max(0, viewportHeight - boxHeight);
+
+    const clampedX = Math.max(0, Math.min(newX, maxX));
+    const clampedY = Math.max(0, Math.min(newY, maxY));
+
+    newsBox.style.left = clampedX + 'px';
+    newsBox.style.top = clampedY + 'px';
+    e.stopPropagation(); // Prevent globe rotation while dragging
+  } catch (error) {
+    console.error('[News Box] Drag error:', error);
+    // Stop dragging on error
+    isDraggingNewsBox = false;
+    newsBox.style.cursor = 'move';
+    document.removeEventListener('mousemove', handleNewsBoxDrag);
+    document.removeEventListener('mouseup', handleNewsBoxDragEnd);
+  }
 }
 
 function handleNewsBoxDragEnd(e) {
@@ -793,15 +790,25 @@ newsBoxTitle.addEventListener('click', (e) => {
   }
 });
 
-async function showNewsBox(countryName, isoCode) {
-  console.log('[News Debug] showNewsBox called with:', { countryName, isoCode });
+async function showNewsBox(countryName, iso3Code) {
+  console.log('[News Debug] showNewsBox called with:', { countryName, iso3Code });
 
-  newsBoxTitle.textContent = `${countryName} Top News`;
+  // Resolve ISO-3 to ISO-2 country code
+  const countryCode = resolveCountryCode(countryName, iso3Code);
+
+  // Clean ISO-3 code for display (remove numeric suffixes like "_2")
+  const cleanIso3Code = iso3Code ? iso3Code.split('_')[0] : null;
+
+  // Display country name with code in parentheses (e.g., "Ukraine (UKR)")
+  const displayTitle = cleanIso3Code
+    ? `${countryName} (${cleanIso3Code.toUpperCase()})`
+    : countryName;
+
+  newsBoxTitle.textContent = displayTitle;
   newsBox.classList.add('active');
   currentView = 'feed';
-  currentNewsData = { countryName, isoCode, countryCode: resolveCountryCode(countryName, isoCode) };
+  currentNewsData = { countryName, iso3Code, countryCode };
 
-  const countryCode = currentNewsData.countryCode;
   console.log('[News Debug] Resolved country code:', countryCode);
 
   // Check if country has no news coverage
@@ -958,8 +965,8 @@ function hideNewsBox() {
   newsBox.classList.remove('active');
   currentNewsData = null;
   currentView = 'feed';
-  
-  // Deselect all countries and restore auto-rotation
+
+  // Deselect all countries
   if (highlightedEntity && highlightedEntity.polygon) {
     const original = originalStyleByEntity.get(highlightedEntity);
     if (original) {
@@ -971,13 +978,23 @@ function hideNewsBox() {
     }
     highlightedEntity = null;
   }
-  
-  // Resume auto-rotation
-  autoRotate = true;
-  // Fix #7: Use cached DOM reference instead of querying
-  if (autoRotateCheckbox) {
-    autoRotateCheckbox.checked = true;
-  }
+
+  // Zoom back out to default view
+  viewer.camera.flyTo({
+    destination: Cesium.Cartesian3.fromDegrees(
+      CONFIG.INITIAL_CAMERA.longitude,
+      CONFIG.INITIAL_CAMERA.latitude,
+      CONFIG.INITIAL_CAMERA.height
+    ),
+    duration: 2.0, // 2 second flight back
+    complete: () => {
+      // Resume auto-rotation after zoom completes
+      autoRotate = true;
+      if (autoRotateCheckbox) {
+        autoRotateCheckbox.checked = true;
+      }
+    }
+  });
 }
 
 // ESC key handler to close news box
@@ -1201,6 +1218,98 @@ const dayNightCheckbox = document.getElementById('dayNightCheckbox');
 
 dayNightCheckbox.addEventListener('change', (e) => {
   viewer.scene.globe.enableLighting = e.target.checked;
+});
+
+// ============================================================================
+// CONTROLS PANEL DRAGGING
+// ============================================================================
+const controlsPanel = document.getElementById('controlsPanel');
+const controlsPanelHeader = controlsPanel.querySelector('h3');
+let isDraggingControls = false;
+let controlsDragOffsetX = 0;
+let controlsDragOffsetY = 0;
+
+function handleControlsDrag(e) {
+  if (!isDraggingControls) return;
+
+  try {
+    const newX = e.clientX - controlsDragOffsetX;
+    const newY = e.clientY - controlsDragOffsetY;
+
+    // Keep within viewport bounds with safe fallback values
+    const panelWidth = controlsPanel.offsetWidth || 250;
+    const panelHeight = controlsPanel.offsetHeight || 400;
+    const viewportWidth = window.innerWidth || 1920;
+    const viewportHeight = window.innerHeight || 1080;
+
+    const maxX = Math.max(0, viewportWidth - panelWidth);
+    const maxY = Math.max(0, viewportHeight - panelHeight);
+
+    const clampedX = Math.max(0, Math.min(newX, maxX));
+    const clampedY = Math.max(0, Math.min(newY, maxY));
+
+    controlsPanel.style.left = clampedX + 'px';
+    controlsPanel.style.top = clampedY + 'px';
+    controlsPanel.style.right = 'auto'; // Override right positioning
+    e.stopPropagation(); // Prevent globe rotation while dragging
+  } catch (error) {
+    console.error('[Controls Panel] Drag error:', error);
+    // Stop dragging on error
+    isDraggingControls = false;
+    controlsPanel.style.cursor = 'move';
+    document.removeEventListener('mousemove', handleControlsDrag);
+    document.removeEventListener('mouseup', handleControlsDragEnd);
+  }
+}
+
+function handleControlsDragEnd(e) {
+  if (isDraggingControls) {
+    isDraggingControls = false;
+    controlsPanel.style.cursor = 'move';
+    document.removeEventListener('mousemove', handleControlsDrag);
+    document.removeEventListener('mouseup', handleControlsDragEnd);
+    e.stopPropagation(); // Prevent globe rotation after drag
+  }
+}
+
+// Make controls panel draggable by clicking on header
+controlsPanelHeader.addEventListener('mousedown', (e) => {
+  isDraggingControls = true;
+
+  // Calculate offset from panel's current position
+  const rect = controlsPanel.getBoundingClientRect();
+  controlsDragOffsetX = e.clientX - rect.left;
+  controlsDragOffsetY = e.clientY - rect.top;
+  controlsPanel.style.cursor = 'grabbing';
+
+  document.addEventListener('mousemove', handleControlsDrag);
+  document.addEventListener('mouseup', handleControlsDragEnd);
+
+  e.preventDefault();
+  e.stopPropagation(); // Prevent globe rotation
+});
+
+// Also allow dragging by clicking anywhere on the panel
+controlsPanel.addEventListener('mousedown', (e) => {
+  // Don't start drag if clicking on interactive elements
+  if (e.target.tagName === 'INPUT' ||
+      e.target.tagName === 'BUTTON' ||
+      e.target.tagName === 'LABEL') {
+    return;
+  }
+
+  isDraggingControls = true;
+
+  const rect = controlsPanel.getBoundingClientRect();
+  controlsDragOffsetX = e.clientX - rect.left;
+  controlsDragOffsetY = e.clientY - rect.top;
+  controlsPanel.style.cursor = 'grabbing';
+
+  document.addEventListener('mousemove', handleControlsDrag);
+  document.addEventListener('mouseup', handleControlsDragEnd);
+
+  e.preventDefault();
+  e.stopPropagation(); // Prevent globe rotation
 });
 
 // ============================================================================
