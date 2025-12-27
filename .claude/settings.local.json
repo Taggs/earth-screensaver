@@ -19,7 +19,8 @@
       "Bash(CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder:*)",
       "Bash(set:*)",
       "Bash(./EarthScreensaver.exe)",
-      "Bash(npx asar:*)"
+      "Bash(npx asar:*)",
+      "Bash(CSC_IDENTITY_AUTO_DISCOVERY=false WIN_CSC_LINK= npx electron-builder --win --dir)"
     ]
   }
 }

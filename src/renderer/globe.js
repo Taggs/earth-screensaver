@@ -41,61 +41,104 @@ const CONFIG = {
 // ============================================================================
 // INITIALIZATION
 // ============================================================================
-// Configure Cesium to use local assets
-window.CESIUM_BASE_URL = '../node_modules/cesium/Build/Cesium/';
+// Wait for Cesium to load, then configure
+function waitForCesium() {
+  return new Promise((resolve, reject) => {
+    if (typeof Cesium !== 'undefined') {
+      resolve();
+    } else {
+      console.log('[Globe] Waiting for Cesium to load...');
 
-// Set initial token, will be updated asynchronously
-Cesium.Ion.defaultAccessToken = 'YOUR_CESIUM_ION_TOKEN';
+      let attempts = 0;
+      const maxAttempts = 600; // 60 seconds (100ms * 600)
 
-// Get API key from main process and update token
-async function initializeApiKeys() {
-  try {
-    const cesiumToken = await window.electronAPI.getApiKey('cesium');
-    Cesium.Ion.defaultAccessToken = cesiumToken;
-    console.log('Cesium token updated successfully');
-  } catch (error) {
-    console.error('Failed to get Cesium token:', error);
-  }
+      // Wait for Cesium to load
+      const checkInterval = setInterval(() => {
+        attempts++;
+
+        if (typeof Cesium !== 'undefined') {
+          clearInterval(checkInterval);
+          console.log('[Globe] Cesium loaded after', (attempts * 100) + 'ms');
+          resolve();
+        } else if (attempts >= maxAttempts) {
+          clearInterval(checkInterval);
+          console.error('[Globe] Cesium failed to load after 60 seconds');
+          document.getElementById('cesiumContainer').innerHTML = '<div style="color: white; padding: 40px; text-align: center;"><h1>Loading Error</h1><p>The 3D globe library failed to load. This may be due to a slow internet connection.<br><br>Please refresh the page to try again.</p></div>';
+          reject(new Error('Cesium load timeout'));
+        } else if (attempts % 50 === 0) {
+          // Progress feedback every 5 seconds
+          console.log('[Globe] Still waiting for Cesium...', (attempts * 100 / 1000) + 's elapsed');
+        }
+      }, 100);
+    }
+  });
 }
 
-// Create viewer with absolute minimal configuration
-const viewer = new Cesium.Viewer('cesiumContainer', {
-  // Hide all UI controls for screensaver mode
-  animation: false,
-  timeline: false,
-  baseLayerPicker: false,
-  geocoder: false,
-  homeButton: false,
-  sceneModePicker: false,
-  navigationHelpButton: false,
-  fullscreenButton: false,
-  vrButton: false,
-  selectionIndicator: false,  // Disable green reticle
-  infoBox: true  // enable info box
+// Configure Cesium after it loads
+waitForCesium().then(() => {
+  console.log('[Globe] Cesium loaded successfully');
+
+  // Configure base URL for local assets
+  if (!window.CESIUM_BASE_URL) {
+    window.CESIUM_BASE_URL = '../../node_modules/cesium/Build/Cesium/';
+  }
+
+  // Set initial token, will be updated asynchronously
+  Cesium.Ion.defaultAccessToken = 'YOUR_CESIUM_ION_TOKEN';
+
+  // Initialize the app
+  initializeApp();
+}).catch((error) => {
+  console.error('[Globe] Error initializing Cesium:', error);
 });
 
-// Keep overlays visible even when clamped entities intersect terrain
-viewer.scene.globe.depthTestAgainstTerrain = false;
-viewer.scene.pickTranslucentDepth = false; // Disable to prevent WebGL bindTexture errors
+// Viewer will be created after Cesium loads
+let viewer;
 
-// Initialize API keys and then load assets that depend on them
+// Initialize API keys and create viewer
 async function initializeApp() {
   try {
+    console.log('[Globe] Initializing app...');
+
     // Get real API keys first
     const cesiumToken = await window.electronAPI.getApiKey('cesium');
     Cesium.Ion.defaultAccessToken = cesiumToken;
     console.log('Cesium token updated successfully:', cesiumToken.substring(0, 20) + '...');
-    
+
+    // Create viewer with absolute minimal configuration
+    viewer = new Cesium.Viewer('cesiumContainer', {
+      // Hide all UI controls for screensaver mode
+      animation: false,
+      timeline: false,
+      baseLayerPicker: false,
+      geocoder: false,
+      homeButton: false,
+      sceneModePicker: false,
+      navigationHelpButton: false,
+      fullscreenButton: false,
+      vrButton: false,
+      selectionIndicator: false,  // Disable green reticle
+      infoBox: true  // enable info box
+    });
+
+    // Keep overlays visible even when clamped entities intersect terrain
+    viewer.scene.globe.depthTestAgainstTerrain = false;
+    viewer.scene.pickTranslucentDepth = false; // Disable to prevent WebGL bindTexture errors
+
+    console.log('[Globe] Viewer created');
+
     // Now load assets that require authentication
     await loadBingMapsImagery();
-    
+
     // Continue with rest of setup
     setupScene();
-    
+
+    // Initialize all the globe features
+    initializeGlobeFeatures();
+
   } catch (error) {
     console.error('Failed to initialize app:', error);
-    // Fallback to basic setup without authenticated assets
-    setupScene();
+    document.getElementById('cesiumContainer').innerHTML = '<div style="color: white; padding: 40px; text-align: center;"><h1>Initialization Error</h1><p>' + error.message + '</p></div>';
   }
 }
 
@@ -141,20 +184,40 @@ function setupScene() {
   console.log('Scene setup completed');
 }
 
-// Initialize the app when DOM is ready
-document.addEventListener('DOMContentLoaded', initializeApp);
-
 // ============================================================================
-// CITY LABELS (Capitals and Secondary Cities)
+// MODULE-LEVEL VARIABLES (must be declared before functions use them)
 // ============================================================================
-// High Fix #8: Removed duplicate CITIES array - now imported from cities.js at top of file
-
-// Create label collection for cities
-const labelCollection = viewer.scene.primitives.add(new Cesium.LabelCollection());
-const billboardCollection = viewer.scene.primitives.add(new Cesium.BillboardCollection());
-
 // Store label references for visibility updates
 const cityLabels = [];
+
+// High Fix #10: Cache city marker images to avoid creating 300+ identical markers
+const markerCache = {};
+
+// Intervals and event listener cleanup references
+let sunPositionInterval = null;
+let weatherUpdateInterval = null;
+let decelerateInterval = null;
+let postRenderRemoveCallback = null;
+let preRenderRemoveCallback = null;
+
+// Country interaction
+let countryInteractionHandler = null;
+
+// ============================================================================
+// GLOBE FEATURES INITIALIZATION
+// ============================================================================
+// This function is called after the viewer is created and scene is set up
+function initializeGlobeFeatures() {
+  console.log('[Globe] Initializing globe features...');
+
+  // ============================================================================
+  // CITY LABELS (Capitals and Secondary Cities)
+  // ============================================================================
+  // High Fix #8: Removed duplicate CITIES array - now imported from cities.js at top of file
+
+  // Create label collection for cities
+  const labelCollection = viewer.scene.primitives.add(new Cesium.LabelCollection());
+  const billboardCollection = viewer.scene.primitives.add(new Cesium.BillboardCollection());
 
 // Create labels for each city
 CITIES.forEach(([name, lat, lon, population, isCapital, countryCode]) => {
@@ -228,9 +291,6 @@ CITIES.forEach(([name, lat, lon, population, isCapital, countryCode]) => {
     position
   });
 });
-
-// High Fix #10: Cache city marker images to avoid creating 300+ identical markers
-const markerCache = {};
 
 // Create a canvas-based city marker
 function createCityMarker(isCapital) {
@@ -311,12 +371,11 @@ function updateLabelVisibility() {
 
 // Update labels periodically
 // Fix #4: Store event listener reference for cleanup
-const postRenderRemoveCallback = viewer.scene.postRender.addEventListener(updateLabelVisibility);
+postRenderRemoveCallback = viewer.scene.postRender.addEventListener(updateLabelVisibility);
 
 // ============================================================================
 // DAY/NIGHT CYCLE
 // ============================================================================
-let sunPositionInterval = null;
 
 function updateSunPosition() {
   const now = new Date();
@@ -360,8 +419,7 @@ let lastMouseY = 0;
 let mouseDownX = 0;
 let mouseDownY = 0;
 let dragVelocity = 0;
-// Critical Fix #4: Store interval ID to prevent memory leak
-let decelerateInterval = null;
+// Critical Fix #4: decelerateInterval declared at module level (line 190)
 
 // News box dragging state (declared before canvas handlers)
 let isDraggingNewsBox = false;
@@ -490,7 +548,7 @@ function resolveCountryCode(countryName, isoCode) {
 
 // Add GeoJSON country boundaries for hover highlighting
 let countriesDataSource;
-let countryInteractionHandler;
+// countryInteractionHandler declared at module level (line 195)
 let highlightedEntity = null;
 const originalStyleByEntity = new Map();
 
@@ -1085,7 +1143,7 @@ updateStorms();
 
 // Update weather and storms hourly
 // Fix #2: Store interval ID for cleanup
-let weatherUpdateInterval = setInterval(() => {
+weatherUpdateInterval = setInterval(() => {
   updateWeatherLayer();
   updateStorms();
 }, CONFIG.WEATHER_UPDATE_INTERVAL);
@@ -1094,7 +1152,7 @@ let weatherUpdateInterval = setInterval(() => {
 // RENDER LOOP
 // ============================================================================
 // Fix #4: Store event listener reference for cleanup
-const preRenderRemoveCallback = viewer.scene.preRender.addEventListener(() => {
+preRenderRemoveCallback = viewer.scene.preRender.addEventListener(() => {
   rotateGlobe();
 });
 
@@ -1159,6 +1217,9 @@ document.addEventListener('keydown', (e) => {
 });
 
 console.log('Earth Screensaver initialized');
+
+  // End of initializeGlobeFeatures()
+}
 
 // ============================================================================
 // CLEANUP FUNCTION

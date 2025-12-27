@@ -69,6 +69,29 @@ function createWindow() {
     console.log(`[Renderer] ${message} (${sourceId}:${line})`);
   });
 
+  // Handle renderer crashes or hangs
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    console.error('[Main] Renderer process crashed:', details);
+  });
+
+  mainWindow.webContents.on('unresponsive', () => {
+    console.error('[Main] Renderer process is unresponsive');
+  });
+
+  // Global keyboard shortcuts to force quit (for debugging)
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    // Alt+F4 or Ctrl+Q to force quit
+    if ((input.key === 'F4' && input.alt) || (input.key === 'q' && input.control)) {
+      console.log('[Main] Force quit requested');
+      app.quit();
+    }
+    // ESC to close window
+    if (input.key === 'Escape') {
+      console.log('[Main] ESC pressed, closing window');
+      mainWindow.close();
+    }
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
