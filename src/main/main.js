@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { app, BrowserWindow, ipcMain, powerMonitor, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, powerMonitor, screen, shell } = require('electron');
 const path = require('path');
 
 let mainWindow = null;
@@ -312,5 +312,13 @@ ipcMain.handle('fetch-news', async (event, countryCode) => {
   } catch (error) {
     console.error('[Main Process] News fetch failed:', error);
     return null;
+  }
+});
+
+// Open external URL in default browser
+ipcMain.on('open-external', (event, url) => {
+  console.log('[Main Process] Opening external URL:', url);
+  if (url && typeof url === 'string') {
+    shell.openExternal(url);
   }
 });

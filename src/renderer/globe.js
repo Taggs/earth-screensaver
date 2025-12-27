@@ -7,36 +7,46 @@ import { CITIES } from './cities.js';
 const CONFIG = {
   // Get a free token at https://cesium.com/ion/tokens
   CESIUM_ION_TOKEN: 'YOUR_CESIUM_ION_TOKEN',
-  
+
   // Rotation speed (radians per second)
   ROTATION_SPEED: 0.0001,
-  
+
   // Weather update interval (ms)
   WEATHER_UPDATE_INTERVAL: 60 * 60 * 1000, // 1 hour
-  
+
   // Initial camera position
   INITIAL_CAMERA: {
     longitude: 0,
     latitude: 20,
     height: 15000000 // 15,000 km
   },
-  
+
   // Label visibility settings
   LABELS: {
     // Distance thresholds for label visibility (in meters)
     CAPITAL_MAX_DISTANCE: 15000000,      // 15,000 km - capitals always visible from far
     MAJOR_CITY_MAX_DISTANCE: 6000000,    // 6,000 km - major cities (pop > 5M)
     SECONDARY_CITY_MAX_DISTANCE: 2000000, // 2,000 km - secondary cities
-    
+
     // Population thresholds
     MAJOR_CITY_POPULATION: 5000000,
-    
+
     // Font sizes
     CAPITAL_FONT_SIZE: 16,
     MAJOR_CITY_FONT_SIZE: 12,
     SECONDARY_CITY_FONT_SIZE: 10
   }
 };
+
+// ============================================================================
+// LANGUAGE DETECTION & TRANSLATION
+// ============================================================================
+// Detect user's native language from OS/browser
+const userLanguage = (navigator.language || navigator.userLanguage || 'en').split('-')[0]; // e.g., "en", "es", "fr"
+console.log('[Language] Detected user language:', userLanguage);
+
+// Translation enabled by default
+let translationEnabled = true;
 
 // ============================================================================
 // INITIALIZATION
@@ -118,7 +128,7 @@ async function initializeApp() {
       fullscreenButton: false,
       vrButton: false,
       selectionIndicator: false,  // Disable green reticle
-      infoBox: true  // enable info box
+      infoBox: false  // Disable info box (camera bar)
     });
 
     // Keep overlays visible even when clamped entities intersect terrain
@@ -790,6 +800,149 @@ newsBoxTitle.addEventListener('click', (e) => {
   }
 });
 
+// Map country codes to their primary language
+const COUNTRY_LANGUAGES = {
+  'ua': 'uk', // Ukraine - Ukrainian
+  'ru': 'ru', // Russia - Russian
+  'cn': 'zh', // China - Chinese
+  'jp': 'ja', // Japan - Japanese
+  'kr': 'ko', // Korea - Korean
+  'sa': 'ar', // Saudi Arabia - Arabic
+  'ae': 'ar', // UAE - Arabic
+  'eg': 'ar', // Egypt - Arabic
+  'il': 'he', // Israel - Hebrew
+  'ir': 'fa', // Iran - Farsi/Persian
+  'tr': 'tr', // Turkey - Turkish
+  'gr': 'el', // Greece - Greek
+  'th': 'th', // Thailand - Thai
+  'vn': 'vi', // Vietnam - Vietnamese
+  'tw': 'zh', // Taiwan - Chinese
+  'hk': 'zh', // Hong Kong - Chinese
+  // Most others default to English or their ISO code
+};
+
+// Translate text using Google Translate API (via mymemory.translated.net - free alternative)
+async function translateText(text, sourceLang, targetLang) {
+  if (!text || !targetLang) return text;
+
+  // If source and target are the same, no translation needed
+  if (sourceLang === targetLang) return text;
+
+  // If target is the likely source language, no translation needed
+  if (sourceLang && targetLang === sourceLang) return text;
+
+  try {
+    // Limit text length to avoid "414 URI Too Long" errors
+    // MyMemory API has a practical limit around 500 characters per request
+    const maxLength = 500;
+    const textToTranslate = text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+
+    const encodedText = encodeURIComponent(textToTranslate);
+    // Auto-detect source language if not provided
+    const langPair = sourceLang ? `${sourceLang}|${targetLang}` : `${targetLang}`;
+    const url = `https://api.mymemory.translated.net/get?q=${encodedText}&langpair=${langPair}`;
+
+    const response = await fetch(url);
+
+    // Check if response is JSON before parsing
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      console.warn('[Translation] Non-JSON response received, using original text');
+      return text;
+    }
+
+    const data = await response.json();
+
+    if (data.responseStatus === 200 && data.responseData && data.responseData.translatedText) {
+      return data.responseData.translatedText;
+    }
+
+    return text; // Return original if translation fails
+  } catch (error) {
+    console.warn('[Translation] Failed to translate:', error.message);
+    return text; // Return original text on error
+  }
+}
+
+// Translate long text by splitting into sentences and translating in chunks
+async function translateLongText(text, sourceLang, targetLang) {
+  if (!text || !targetLang) return text;
+  if (sourceLang === targetLang) return text;
+
+  try {
+    // Split text into sentences (split on ., !, ?, but keep the punctuation)
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+    const chunkSize = 400; // Safe size per request
+    const translatedChunks = [];
+
+    let currentChunk = '';
+
+    for (let i = 0; i < sentences.length; i++) {
+      const sentence = sentences[i];
+
+      // If adding this sentence would exceed chunk size, translate current chunk first
+      if (currentChunk.length + sentence.length > chunkSize && currentChunk.length > 0) {
+        const translated = await translateText(currentChunk.trim(), sourceLang, targetLang);
+        translatedChunks.push(translated);
+        currentChunk = sentence;
+
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } else {
+        currentChunk += sentence;
+      }
+    }
+
+    // Translate remaining chunk
+    if (currentChunk.length > 0) {
+      const translated = await translateText(currentChunk.trim(), sourceLang, targetLang);
+      translatedChunks.push(translated);
+    }
+
+    return translatedChunks.join(' ');
+  } catch (error) {
+    console.error('[Translation] Failed to translate long text:', error.message);
+    return text; // Return original on error
+  }
+}
+
+// Translate article object (only title and description for feed view)
+async function translateArticle(article, sourceLang, targetLang) {
+  // Always return a valid article object, even if input is invalid
+  if (!article) {
+    console.warn('[Translation] Invalid article provided to translateArticle');
+    return null;
+  }
+
+  if (!translationEnabled) return article;
+
+  // If source and target are the same, no translation needed
+  if (sourceLang === targetLang) return article;
+
+  try {
+    const translated = { ...article };
+
+    // Translate title
+    if (article.title) {
+      translated.title = await translateText(article.title, sourceLang, targetLang);
+    }
+
+    // Translate description
+    if (article.description) {
+      translated.description = await translateText(article.description, sourceLang, targetLang);
+    }
+
+    // Don't translate content here - only translate when user clicks "more"
+    // This saves API calls and speeds up initial loading
+
+    return translated;
+  } catch (error) {
+    console.error('[Translation] Failed to translate article:', error.message);
+    // Return original article if translation fails
+    return article;
+  }
+}
+
 async function showNewsBox(countryName, iso3Code) {
   console.log('[News Debug] showNewsBox called with:', { countryName, iso3Code });
 
@@ -810,6 +963,7 @@ async function showNewsBox(countryName, iso3Code) {
   currentNewsData = { countryName, iso3Code, countryCode };
 
   console.log('[News Debug] Resolved country code:', countryCode);
+  console.log('[Translation] User language:', userLanguage, '| Translation enabled:', translationEnabled);
 
   // Check if country has no news coverage
   if (!countryCode) {
@@ -871,7 +1025,42 @@ async function showNewsBox(countryName, iso3Code) {
       // Critical Fix #1: Cache the news data
       newsCache.set(countryCode, data.articles);
       currentNewsData.articles = data.articles;
-      renderNewsFeed(data.articles);
+
+      // Detect source language from country code
+      const sourceLang = COUNTRY_LANGUAGES[countryCode] || 'en';
+      console.log('[Translation] Source language:', sourceLang, '| Target language:', userLanguage);
+
+      // Translate articles if translation is enabled and languages differ
+      if (translationEnabled && sourceLang !== userLanguage) {
+        console.log('[Translation] Translating articles from', sourceLang, 'to', userLanguage);
+        newsBoxContent.innerHTML = '<div class="loading">Translating headlines...</div>';
+
+        const articlesToTranslate = data.articles.slice(0, 10);
+        const translatedArticles = await Promise.all(
+          articlesToTranslate.map((article, index) =>
+            translateArticle(article, sourceLang, userLanguage)
+              .then(translated => translated || article) // Fall back to original if translation returns null
+          )
+        );
+
+        // Check if at least some translations succeeded (not all are identical to originals)
+        const hasTranslations = translatedArticles.some((translated, index) =>
+          translated.title !== articlesToTranslate[index].title
+        );
+
+        if (hasTranslations) {
+          currentNewsData.translatedArticles = translatedArticles;
+          currentNewsData.sourceLang = sourceLang;
+          renderNewsFeed(translatedArticles);
+        } else {
+          console.warn('[Translation] All translations failed, showing original articles');
+          currentNewsData.sourceLang = sourceLang;
+          renderNewsFeed(articlesToTranslate);
+        }
+      } else {
+        console.log('[Translation] No translation needed - same language or translation disabled');
+        renderNewsFeed(data.articles);
+      }
     } else {
       console.log('[News Debug] No articles found in response');
       newsBoxContent.innerHTML = '<div class="loading">No headlines available for this country</div>';
@@ -929,20 +1118,56 @@ function handleNewsArticleClick(e) {
   }
 }
 
-function showArticle(articleIndex) {
+async function showArticle(articleIndex) {
   if (!currentNewsData || !currentNewsData.articles) return;
-  
-  const article = currentNewsData.articles[articleIndex];
+
+  // Use translated articles if translation is enabled and they exist, otherwise use originals
+  const articlesSource = (translationEnabled && currentNewsData.translatedArticles)
+    ? currentNewsData.translatedArticles
+    : currentNewsData.articles;
+
+  const article = articlesSource[articleIndex];
+
+  // Safety check in case article is undefined (shouldn't happen with new logic)
+  if (!article) {
+    console.error('[News] Article not found at index:', articleIndex);
+    return;
+  }
+
   currentView = 'article';
-  
+
+  // Get title and description (already translated if applicable)
   const headline = escapeHtml(article.title);
   const description = article.description ? escapeHtml(article.description) : '';
-  const content = article.content ? escapeHtml(article.content) : '';
   const source = escapeHtml(article.source?.name || 'Unknown');
   const author = article.author ? escapeHtml(article.author) : '';
   const publishedAt = article.publishedAt ? new Date(article.publishedAt).toLocaleDateString() : '';
   const url = article.url || '#';
-  
+
+  // Translate content on-demand if translation is enabled and content exists
+  let content = '';
+  if (article.content) {
+    if (translationEnabled && currentNewsData.sourceLang && currentNewsData.sourceLang !== userLanguage) {
+      // Show loading message while translating
+      newsBoxContent.innerHTML = `
+        <a class="news-back">← Back to feed</a>
+        <div class="news-article">
+          <h3 class="news-headline">${headline}</h3>
+          ${description ? `<p class="news-byline">${description}</p>` : ''}
+          <p class="news-meta">${source}${author ? ` • ${author}` : ''}${publishedAt ? ` • ${publishedAt}` : ''}</p>
+          <div class="loading">Translating article...</div>
+        </div>
+      `;
+
+      // Translate the content
+      const translatedContent = await translateLongText(article.content, currentNewsData.sourceLang, userLanguage);
+      content = escapeHtml(translatedContent);
+    } else {
+      content = escapeHtml(article.content);
+    }
+  }
+
+  // Display the article with translated content
   newsBoxContent.innerHTML = `
     <a class="news-back">← Back to feed</a>
     <div class="news-article">
@@ -950,14 +1175,26 @@ function showArticle(articleIndex) {
       ${description ? `<p class="news-byline">${description}</p>` : ''}
       <p class="news-meta">${source}${author ? ` • ${author}` : ''}${publishedAt ? ` • ${publishedAt}` : ''}</p>
       ${content ? `<p class="news-body">${content}</p>` : ''}
-      <a class="news-more" href="${url}" target="_blank">Read full article →</a>
+      <a class="news-more" href="${url}" data-external-url="${url}">Read full article →</a>
     </div>
   `;
-  
-  // Add back button handler
+
+  // Add back button handler - use the same articles source for consistency
   document.querySelector('.news-back').addEventListener('click', (e) => {
     e.preventDefault();
-    renderNewsFeed(currentNewsData.articles);
+    renderNewsFeed(articlesSource);
+  });
+
+  // Add external link handler - open in browser and close screensaver
+  document.querySelector('.news-more').addEventListener('click', (e) => {
+    e.preventDefault();
+    const externalUrl = e.target.dataset.externalUrl;
+    if (externalUrl && externalUrl !== '#' && window.electronAPI) {
+      // Open URL in default browser
+      window.electronAPI.openExternal(externalUrl);
+      // Close the screensaver
+      window.electronAPI.exitScreensaver();
+    }
   });
 }
 
@@ -1218,6 +1455,48 @@ const dayNightCheckbox = document.getElementById('dayNightCheckbox');
 
 dayNightCheckbox.addEventListener('change', (e) => {
   viewer.scene.globe.enableLighting = e.target.checked;
+});
+
+// ============================================================================
+// TRANSLATION TOGGLE
+// ============================================================================
+const translateCheckbox = document.getElementById('translateCheckbox');
+
+translateCheckbox.addEventListener('change', async (e) => {
+  translationEnabled = e.target.checked;
+  console.log('[Translation] Translation', translationEnabled ? 'enabled' : 'disabled');
+
+  // If news is currently showing, refresh it with new translation setting
+  if (newsBox.classList.contains('active') && currentNewsData && currentNewsData.articles) {
+    // Get source language from stored data or country code
+    const sourceLang = currentNewsData.sourceLang || COUNTRY_LANGUAGES[currentNewsData.countryCode] || 'en';
+
+    if (translationEnabled && sourceLang !== userLanguage) {
+      // Check if we already have cached translations
+      if (currentNewsData.translatedArticles) {
+        console.log('[Translation] Using cached translations');
+        renderNewsFeed(currentNewsData.translatedArticles);
+      } else {
+        // Translate for the first time
+        console.log('[Translation] Translating articles for the first time');
+        newsBoxContent.innerHTML = '<div class="loading">Translating headlines...</div>';
+
+        const articlesToTranslate = currentNewsData.articles.slice(0, 10);
+        const translatedArticles = await Promise.all(
+          articlesToTranslate.map((article, index) =>
+            translateArticle(article, sourceLang, userLanguage)
+              .then(translated => translated || article) // Fall back to original if translation returns null
+          )
+        );
+
+        currentNewsData.translatedArticles = translatedArticles;
+        renderNewsFeed(translatedArticles);
+      }
+    } else {
+      // Show original version
+      renderNewsFeed(currentNewsData.articles);
+    }
+  }
 });
 
 // ============================================================================
