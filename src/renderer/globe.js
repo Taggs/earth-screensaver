@@ -307,23 +307,27 @@ function updateLabelVisibility() {
 }
 
 // Update labels periodically
-viewer.scene.postRender.addEventListener(updateLabelVisibility);
+// Fix #4: Store event listener reference for cleanup
+const postRenderRemoveCallback = viewer.scene.postRender.addEventListener(updateLabelVisibility);
 
 // ============================================================================
 // DAY/NIGHT CYCLE
 // ============================================================================
+let sunPositionInterval = null;
+
 function updateSunPosition() {
   const now = new Date();
   const julianDate = Cesium.JulianDate.fromDate(now);
   viewer.scene.globe.lightingFadeOutDistance = 1e7;
   viewer.scene.globe.lightingFadeInDistance = 2e7;
-  
+
   // CesiumJS automatically calculates sun position from clock
   viewer.clock.currentTime = julianDate;
 }
 
 // Update sun position every minute
-setInterval(updateSunPosition, 60000);
+// Fix #1: Store interval ID for cleanup
+sunPositionInterval = setInterval(updateSunPosition, 60000);
 updateSunPosition();
 
 // ============================================================================
@@ -499,37 +503,51 @@ async function loadCountryBoundaries() {
     const entities = geoJsonDataSource.entities.values;
     console.log(`[EarthScreensaver] Creating ${entities.length} manual country entities`);
 
+    // Fix #3: Batch entity creation to avoid blocking UI thread
+    const BATCH_SIZE = 20;
     let createdCount = 0;
-    for (let i = 0; i < entities.length; i++) {
-      const entity = entities[i];
-      if (entity.polygon && entity.polygon.hierarchy) {
-        const coords = entity.polygon.hierarchy.getValue();
-        const countryName = entity.name || entity.properties?.ADMIN?.getValue() || `Country ${i}`;
 
-        // High Fix #5: Removed expensive nested loop debug code that was O(n*m)
-        // Original debug code iterated through all property names for each entity
+    for (let i = 0; i < entities.length; i += BATCH_SIZE) {
+      const batchEnd = Math.min(i + BATCH_SIZE, entities.length);
 
-        // Extract positions if it's a PolygonHierarchy object
-        const hierarchyPositions = coords?.positions || coords;
-        
-        // Create manual entity in viewer.entities for reliable picking
-        viewer.entities.add({
-          name: countryName,
-          properties: entity.properties, // Preserve original properties
-          polygon: {
-            hierarchy: hierarchyPositions,
-            height: 1000,
-            heightReference: Cesium.HeightReference.NONE,
-            material: Cesium.Color.WHITE.withAlpha(0.01), // Nearly invisible but pickable
-            fill: true,
-            outline: true,
-            outlineColor: Cesium.Color.WHITE.withAlpha(0.3), // Reduced contrast white
-            outlineWidth: 0.5 // Thinner white borders
-          }
-        });
-        createdCount++;
+      // Process batch synchronously
+      for (let j = i; j < batchEnd; j++) {
+        const entity = entities[j];
+        if (entity.polygon && entity.polygon.hierarchy) {
+          const coords = entity.polygon.hierarchy.getValue();
+          const countryName = entity.name || entity.properties?.ADMIN?.getValue() || `Country ${j}`;
+
+          // High Fix #5: Removed expensive nested loop debug code that was O(n*m)
+          // Original debug code iterated through all property names for each entity
+
+          // Extract positions if it's a PolygonHierarchy object
+          const hierarchyPositions = coords?.positions || coords;
+
+          // Create manual entity in viewer.entities for reliable picking
+          viewer.entities.add({
+            name: countryName,
+            properties: entity.properties, // Preserve original properties
+            polygon: {
+              hierarchy: hierarchyPositions,
+              height: 1000,
+              heightReference: Cesium.HeightReference.NONE,
+              material: Cesium.Color.WHITE.withAlpha(0.01), // Nearly invisible but pickable
+              fill: true,
+              outline: true,
+              outlineColor: Cesium.Color.WHITE.withAlpha(0.3), // Reduced contrast white
+              outlineWidth: 0.5 // Thinner white borders
+            }
+          });
+          createdCount++;
+        }
+      }
+
+      // Yield to UI thread between batches
+      if (i + BATCH_SIZE < entities.length) {
+        await new Promise(resolve => setTimeout(resolve, 0));
       }
     }
+
     console.log(`[EarthScreensaver] Created ${createdCount} manual country entities`);
 
     setupCountryInteractionHandlers();
@@ -595,7 +613,7 @@ function setupCountryInteractionHandlers() {
       
       // Stop auto-rotation when showing news
       autoRotate = false;
-      const autoRotateCheckbox = document.getElementById('autoRotateCheckbox');
+      // Fix #7: Use cached DOM reference instead of querying
       if (autoRotateCheckbox) {
         autoRotateCheckbox.checked = false;
       }
@@ -799,29 +817,35 @@ async function showNewsBox(countryName, isoCode) {
 function renderNewsFeed(articles) {
   currentView = 'feed';
 
-  // Critical Fix #2: Use event delegation to avoid accumulating event listeners
-  newsBoxContent.innerHTML = articles
-    .slice(0, 10)
-    .map((article, index) => {
-      const headline = escapeHtml(article.title);
-      const description = article.description ? escapeHtml(article.description) : '';
-      const source = escapeHtml(article.source?.name || 'Unknown');
-      const author = article.author ? escapeHtml(article.author) : '';
-      const publishedAt = article.publishedAt ? new Date(article.publishedAt).toLocaleDateString() : '';
+  // Fix #6: Use DocumentFragment for efficient DOM manipulation
+  const fragment = document.createDocumentFragment();
+  const articlesToShow = articles.slice(0, 10);
 
-      // Get first 2 lines of description
-      const descriptionLines = description.split('\n').slice(0, 2).join('\n');
+  articlesToShow.forEach((article, index) => {
+    const headline = escapeHtml(article.title);
+    const description = article.description ? escapeHtml(article.description) : '';
+    const source = escapeHtml(article.source?.name || 'Unknown');
+    const author = article.author ? escapeHtml(article.author) : '';
+    const publishedAt = article.publishedAt ? new Date(article.publishedAt).toLocaleDateString() : '';
 
-      return `
-        <div class="news-article">
-          <h3 class="news-headline">${headline}</h3>
-          ${description ? `<p class="news-byline">${descriptionLines}</p>` : ''}
-          <p class="news-meta">${source}${author ? ` • ${author}` : ''}${publishedAt ? ` • ${publishedAt}` : ''}</p>
-          <a class="news-more" data-article-index="${index}">more →</a>
-        </div>
-      `;
-    })
-    .join('');
+    // Get first 2 lines of description
+    const descriptionLines = description.split('\n').slice(0, 2).join('\n');
+
+    const articleDiv = document.createElement('div');
+    articleDiv.className = 'news-article';
+    articleDiv.innerHTML = `
+      <h3 class="news-headline">${headline}</h3>
+      ${description ? `<p class="news-byline">${descriptionLines}</p>` : ''}
+      <p class="news-meta">${source}${author ? ` • ${author}` : ''}${publishedAt ? ` • ${publishedAt}` : ''}</p>
+      <a class="news-more" data-article-index="${index}">more →</a>
+    `;
+
+    fragment.appendChild(articleDiv);
+  });
+
+  // Clear and append in one operation
+  newsBoxContent.innerHTML = '';
+  newsBoxContent.appendChild(fragment);
 
   // Critical Fix #2: Remove old listener before adding new one (event delegation)
   newsBoxContent.removeEventListener('click', handleNewsArticleClick);
@@ -889,7 +913,7 @@ function hideNewsBox() {
   
   // Resume auto-rotation
   autoRotate = true;
-  const autoRotateCheckbox = document.getElementById('autoRotateCheckbox');
+  // Fix #7: Use cached DOM reference instead of querying
   if (autoRotateCheckbox) {
     autoRotateCheckbox.checked = true;
   }
@@ -973,8 +997,8 @@ async function updateStorms() {
     stormEntities.forEach(entity => viewer.entities.remove(entity));
     stormEntities = [];
 
-    // Fetch storm data from OpenWeatherMap
-    const API_KEY = 'ffb5a08a8dcb48f351ed6873452fff3f';
+    // Fix #5: Use API key from environment instead of hardcoding
+    const API_KEY = await window.electronAPI.getApiKey('openweather');
 
     // OpenWeatherMap doesn't have a direct storm API, so we'll use example data
     // In production, you'd use a specialized API like NOAA or hurricane tracking services
@@ -1057,7 +1081,8 @@ updateWeatherLayer();
 updateStorms();
 
 // Update weather and storms hourly
-setInterval(() => {
+// Fix #2: Store interval ID for cleanup
+let weatherUpdateInterval = setInterval(() => {
   updateWeatherLayer();
   updateStorms();
 }, CONFIG.WEATHER_UPDATE_INTERVAL);
@@ -1065,7 +1090,8 @@ setInterval(() => {
 // ============================================================================
 // RENDER LOOP
 // ============================================================================
-viewer.scene.preRender.addEventListener(() => {
+// Fix #4: Store event listener reference for cleanup
+const preRenderRemoveCallback = viewer.scene.preRender.addEventListener(() => {
   rotateGlobe();
 });
 
@@ -1130,3 +1156,42 @@ document.addEventListener('keydown', (e) => {
 });
 
 console.log('Earth Screensaver initialized');
+
+// ============================================================================
+// CLEANUP FUNCTION
+// ============================================================================
+// Fix #4: Cleanup function to prevent memory leaks when viewer is destroyed
+function cleanup() {
+  // Clear intervals
+  if (sunPositionInterval) {
+    clearInterval(sunPositionInterval);
+    sunPositionInterval = null;
+  }
+  if (weatherUpdateInterval) {
+    clearInterval(weatherUpdateInterval);
+    weatherUpdateInterval = null;
+  }
+  if (decelerateInterval) {
+    clearInterval(decelerateInterval);
+    decelerateInterval = null;
+  }
+
+  // Remove event listeners
+  if (postRenderRemoveCallback) {
+    postRenderRemoveCallback();
+  }
+  if (preRenderRemoveCallback) {
+    preRenderRemoveCallback();
+  }
+
+  // Cleanup country interaction handler
+  if (countryInteractionHandler) {
+    countryInteractionHandler.destroy();
+    countryInteractionHandler = null;
+  }
+
+  console.log('[EarthScreensaver] Cleanup completed');
+}
+
+// Cleanup on window unload
+window.addEventListener('beforeunload', cleanup);

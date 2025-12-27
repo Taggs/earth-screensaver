@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx electron . --dev)",
+      "Bash(node -e:*)",
+      "Bash(\"node_modules\\\\.bin\\\\electron.cmd\" . --dev)",
+      "Bash(cat:*)",
+      "Bash(set NODE_ENV=development)",
+      "Bash(npm start)",
+      "Bash(powershell -c \"Start-Process npm -ArgumentList ''start'' -PassThru | Select-Object -ExpandProperty Id\")",
+      "Bash(cmd /c \"start /B npm start\")",
+      "Bash(node --version:*)",
+      "Bash(git stash pop:*)",
+      "Bash(npx electron:*)",
+      "Bash(\"./node_modules/electron/dist/electron.exe\" test-electron.js)",
+      "Bash(npm run build:win:*)",
+      "Bash(set CSC_IDENTITY_AUTO_DISCOVERY=false)",
+      "Bash(npx electron-builder:*)",
+      "Bash(CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder:*)",
+      "Bash(set:*)",
+      "Bash(./EarthScreensaver.exe)"
+    ]
+  }
+}
