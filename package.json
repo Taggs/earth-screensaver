@@ -7,6 +7,7 @@
     "start": "electron .",
     "build": "electron-builder",
     "build:win": "electron-builder --win",
+    "build:win:scr": "electron-builder --win && node scripts/create-scr.js",
     "build:mac": "electron-builder --mac"
   },
   "author": "Your Name <your.email@example.com>",
@@ -22,18 +23,33 @@
   },
   "build": {
     "appId": "com.screensaver.earth",
-    "productName": "Earth Screensaver",
+    "productName": "EarthScreensaver",
     "directories": {
       "output": "dist"
     },
     "files": [
-      "src/**/*"
+      "src/**/*",
+      "!src/**/*.map"
+    ],
+    "extraResources": [
+      {
+        "from": "src/data",
+        "to": "data",
+        "filter": ["**/*"]
+      }
     ],
     "mac": {
       "category": "public.app-category.utilities"
     },
     "win": {
-      "target": "nsis"
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "requestedExecutionLevel": "asInvoker",
+      "artifactName": "${productName}.${ext}"
     }
   }
 }
