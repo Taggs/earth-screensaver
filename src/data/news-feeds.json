@@ -1,0 +1,284 @@
+{
+  "default": {
+    "name": "World News API Default",
+    "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country={COUNTRY_CODE}",
+    "type": "worldnews-api"
+  },
+  "countries": {
+    "us": {
+      "name": "United States - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=us",
+      "type": "worldnews-api"
+    },
+    "gb": {
+      "name": "United Kingdom - BBC News",
+      "feedUrl": "https://feeds.bbci.co.uk/news/rss.xml",
+      "type": "rss"
+    },
+    "ca": {
+      "name": "Canada - CBC News",
+      "feedUrl": "https://www.cbc.ca/cmlink/rss-topstories",
+      "type": "rss"
+    },
+    "au": {
+      "name": "Australia - ABC News",
+      "feedUrl": "https://www.abc.net.au/news/feed/51120/rss.xml",
+      "type": "rss"
+    },
+    "de": {
+      "name": "Germany - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=de",
+      "type": "worldnews-api"
+    },
+    "fr": {
+      "name": "France - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=fr",
+      "type": "worldnews-api"
+    },
+    "it": {
+      "name": "Italy - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=it",
+      "type": "worldnews-api"
+    },
+    "es": {
+      "name": "Spain - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=es",
+      "type": "worldnews-api"
+    },
+    "jp": {
+      "name": "Japan - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=jp",
+      "type": "worldnews-api"
+    },
+    "cn": {
+      "name": "China - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=cn",
+      "type": "worldnews-api"
+    },
+    "in": {
+      "name": "India - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=in",
+      "type": "worldnews-api"
+    },
+    "br": {
+      "name": "Brazil - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=br",
+      "type": "worldnews-api"
+    },
+    "mx": {
+      "name": "Mexico - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=mx",
+      "type": "worldnews-api"
+    },
+    "ru": {
+      "name": "Russia - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=ru",
+      "type": "worldnews-api"
+    },
+    "za": {
+      "name": "South Africa - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=za",
+      "type": "worldnews-api"
+    },
+    "kr": {
+      "name": "South Korea - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=kr",
+      "type": "worldnews-api"
+    },
+    "nl": {
+      "name": "Netherlands - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=nl",
+      "type": "worldnews-api"
+    },
+    "se": {
+      "name": "Sweden - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=se",
+      "type": "worldnews-api"
+    },
+    "no": {
+      "name": "Norway - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=no",
+      "type": "worldnews-api"
+    },
+    "fi": {
+      "name": "Finland - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=fi",
+      "type": "worldnews-api"
+    },
+    "dk": {
+      "name": "Denmark - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=dk",
+      "type": "worldnews-api"
+    },
+    "pl": {
+      "name": "Poland - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=pl",
+      "type": "worldnews-api"
+    },
+    "be": {
+      "name": "Belgium - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=be",
+      "type": "worldnews-api"
+    },
+    "ch": {
+      "name": "Switzerland - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=ch",
+      "type": "worldnews-api"
+    },
+    "at": {
+      "name": "Austria - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=at",
+      "type": "worldnews-api"
+    },
+    "ie": {
+      "name": "Ireland - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=ie",
+      "type": "worldnews-api"
+    },
+    "nz": {
+      "name": "New Zealand - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=nz",
+      "type": "worldnews-api"
+    },
+    "sg": {
+      "name": "Singapore - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=sg",
+      "type": "worldnews-api"
+    },
+    "hk": {
+      "name": "Hong Kong - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=hk",
+      "type": "worldnews-api"
+    },
+    "tw": {
+      "name": "Taiwan - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=tw",
+      "type": "worldnews-api"
+    },
+    "my": {
+      "name": "Malaysia - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=my",
+      "type": "worldnews-api"
+    },
+    "th": {
+      "name": "Thailand - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=th",
+      "type": "worldnews-api"
+    },
+    "ph": {
+      "name": "Philippines - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=ph",
+      "type": "worldnews-api"
+    },
+    "id": {
+      "name": "Indonesia - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=id",
+      "type": "worldnews-api"
+    },
+    "vn": {
+      "name": "Vietnam - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=vn",
+      "type": "worldnews-api"
+    },
+    "pk": {
+      "name": "Pakistan - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=pk",
+      "type": "worldnews-api"
+    },
+    "bd": {
+      "name": "Bangladesh - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=bd",
+      "type": "worldnews-api"
+    },
+    "eg": {
+      "name": "Egypt - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=eg",
+      "type": "worldnews-api"
+    },
+    "ng": {
+      "name": "Nigeria - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=ng",
+      "type": "worldnews-api"
+    },
+    "ke": {
+      "name": "Kenya - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=ke",
+      "type": "worldnews-api"
+    },
+    "ar": {
+      "name": "Argentina - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=ar",
+      "type": "worldnews-api"
+    },
+    "cl": {
+      "name": "Chile - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=cl",
+      "type": "worldnews-api"
+    },
+    "co": {
+      "name": "Colombia - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=co",
+      "type": "worldnews-api"
+    },
+    "pe": {
+      "name": "Peru - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=pe",
+      "type": "worldnews-api"
+    },
+    "ve": {
+      "name": "Venezuela - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=ve",
+      "type": "worldnews-api"
+    },
+    "tr": {
+      "name": "Turkey - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=tr",
+      "type": "worldnews-api"
+    },
+    "sa": {
+      "name": "Saudi Arabia - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=sa",
+      "type": "worldnews-api"
+    },
+    "ae": {
+      "name": "United Arab Emirates - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=ae",
+      "type": "worldnews-api"
+    },
+    "il": {
+      "name": "Israel - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=il",
+      "type": "worldnews-api"
+    },
+    "gr": {
+      "name": "Greece - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=gr",
+      "type": "worldnews-api"
+    },
+    "pt": {
+      "name": "Portugal - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=pt",
+      "type": "worldnews-api"
+    },
+    "cz": {
+      "name": "Czech Republic - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=cz",
+      "type": "worldnews-api"
+    },
+    "ro": {
+      "name": "Romania - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=ro",
+      "type": "worldnews-api"
+    },
+    "hu": {
+      "name": "Hungary - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=hu",
+      "type": "worldnews-api"
+    },
+    "ua": {
+      "name": "Ukraine - World News API",
+      "feedUrl": "https://api.worldnewsapi.com/search-news?api-key={API_KEY}&source-country=ua",
+      "type": "worldnews-api"
+    }
+  }
+}

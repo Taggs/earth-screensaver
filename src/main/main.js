@@ -1,6 +1,8 @@
 require('dotenv').config();
 const { app, BrowserWindow, ipcMain, powerMonitor, screen, shell } = require('electron');
 const path = require('path');
+const feedLoader = require('./feed-loader');
+const feedParser = require('./feed-parser');
 
 let mainWindow = null;
 let configWindow = null;
@@ -272,46 +274,80 @@ ipcMain.handle('fetch-weather', async () => {
 // Handle news API requests
 ipcMain.handle('fetch-news', async (event, countryCode) => {
   console.log('[Main Process] fetch-news called with countryCode:', countryCode);
-  
-  // WorldNewsAPI - replace with your API key
-  const API_KEY = process.env.WORLDNEWS_API_KEY || 'YOUR_WORLDNEWS_API_KEY';
-  console.log('[Main Process] API_KEY configured:', API_KEY !== 'YOUR_WORLDNEWS_API_KEY' ? 'Yes' : 'No (using placeholder)');
-  
-  const apiUrl = `https://api.worldnewsapi.com/search-news?api-key=${API_KEY}&source-country=${countryCode}`;
-  console.log('[Main Process] Full API URL:', apiUrl);
-  
+
   try {
-    console.log('[Main Process] Making fetch request...');
-    const response = await fetch(apiUrl);
-    console.log('[Main Process] Response status:', response.status);
-    console.log('[Main Process] Response ok:', response.ok);
-    
-    const data = await response.json();
-    console.log('[Main Process] Response data:', data);
-    
-    // Transform WorldNewsAPI response to match expected format
-    if (data && data.news) {
-      const transformedData = {
-        status: 'ok',
-        totalResults: data.available || data.news.length,
-        articles: data.news.map(article => ({
-          title: article.title,
-          description: article.summary || article.text?.substring(0, 200) + '...',
-          source: { name: 'World News API' },
-          author: article.authors ? article.authors.join(', ') : 'Unknown',
-          publishedAt: article.publish_date,
-          url: article.url,
-          content: article.text
-        }))
-      };
-      console.log('[Main Process] Transformed response:', transformedData);
-      return transformedData;
+    // Get feed configuration for this country
+    const feedConfig = feedLoader.getFeedForCountry(countryCode);
+    console.log('[Main Process] Using feed:', feedConfig.name);
+
+    // Get API key if needed
+    const API_KEY = process.env.WORLDNEWS_API_KEY || 'YOUR_WORLDNEWS_API_KEY';
+
+    // Prepare feed URL with placeholders replaced
+    const feedUrl = feedLoader.prepareFeedUrl(feedConfig.feedUrl, countryCode, API_KEY);
+    console.log('[Main Process] Fetching from:', feedUrl);
+
+    // Fetch the feed
+    const response = await fetch(feedUrl);
+    console.log('[Main Process] Response status:', response.status, response.ok);
+
+    if (!response.ok) {
+      throw new Error(`Feed fetch failed with status ${response.status}`);
     }
-    
-    return data;
+
+    const contentType = response.headers.get('content-type') || '';
+    console.log('[Main Process] Content-Type:', contentType);
+
+    // Get response content (could be XML or JSON)
+    let content;
+    if (contentType.includes('xml') || contentType.includes('rss') || contentType.includes('atom')) {
+      content = await response.text();
+    } else {
+      content = await response.json();
+    }
+
+    // Parse the feed using the appropriate parser
+    const articles = await feedParser.parseFeed(content, contentType, feedConfig.type);
+    console.log('[Main Process] Parsed', articles.length, 'articles');
+
+    // Return in expected format
+    return {
+      status: 'ok',
+      totalResults: articles.length,
+      articles: articles
+    };
+
   } catch (error) {
     console.error('[Main Process] News fetch failed:', error);
-    return null;
+
+    // Try fallback to default feed
+    try {
+      console.log('[Main Process] Attempting fallback to default feed...');
+      const defaultConfig = feedLoader.loadFeedConfig().default;
+      const API_KEY = process.env.WORLDNEWS_API_KEY || 'YOUR_WORLDNEWS_API_KEY';
+      const feedUrl = feedLoader.prepareFeedUrl(defaultConfig.feedUrl, countryCode, API_KEY);
+
+      const response = await fetch(feedUrl);
+      if (!response.ok) throw new Error('Default feed also failed');
+
+      const contentType = response.headers.get('content-type') || '';
+      const content = contentType.includes('xml') ? await response.text() : await response.json();
+      const articles = await feedParser.parseFeed(content, contentType, defaultConfig.type);
+
+      return {
+        status: 'ok',
+        totalResults: articles.length,
+        articles: articles
+      };
+
+    } catch (fallbackError) {
+      console.error('[Main Process] Fallback also failed:', fallbackError);
+      return {
+        status: 'error',
+        message: 'Failed to fetch news from both configured and default feeds',
+        articles: []
+      };
+    }
   }
 });
 

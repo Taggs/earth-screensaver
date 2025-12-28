@@ -334,6 +334,31 @@
       transform: translateY(0);
     }
 
+    /* Company logo */
+    #companyLogo {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      max-width: 500px;
+      max-height: 500px;
+      z-index: 900;
+      display: none;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    #companyLogo.loaded {
+      display: block;
+    }
+
+    #companyLogo img {
+      width: auto;
+      height: auto;
+      max-width: 100%;
+      max-height: 100%;
+      display: block;
+    }
+
     /* Weather toggle button */
     #weatherToggle {
       width: 100%;
@@ -366,6 +391,10 @@
 </head>
 <body>
   <div id="cesiumContainer"></div>
+
+  <div id="companyLogo">
+    <img src="" alt="Company Logo" />
+  </div>
 
   <div id="controlsPanel">
     <h3>Controls</h3>

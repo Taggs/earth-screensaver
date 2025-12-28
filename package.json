@@ -18,8 +18,9 @@
   },
   "dependencies": {
     "cesium": "^1.113.0",
+    "dotenv": "^16.3.1",
     "suncalc": "^1.9.0",
-    "dotenv": "^16.3.1"
+    "xml2js": "^0.6.2"
   },
   "build": {
     "appId": "com.screensaver.earth",
@@ -35,7 +36,9 @@
       {
         "from": "src/data",
         "to": "data",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "mac": {
@@ -45,7 +48,9 @@
       "target": [
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "requestedExecutionLevel": "asInvoker",

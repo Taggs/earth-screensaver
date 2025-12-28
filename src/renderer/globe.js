@@ -146,6 +146,9 @@ async function initializeApp() {
     // Initialize all the globe features
     initializeGlobeFeatures();
 
+    // Load company logo if available
+    loadCompanyLogo();
+
   } catch (error) {
     console.error('Failed to initialize app:', error);
     document.getElementById('cesiumContainer').innerHTML = '<div style="color: white; padding: 40px; text-align: center;"><h1>Initialization Error</h1><p>' + error.message + '</p></div>';
@@ -1607,6 +1610,33 @@ document.addEventListener('keydown', (e) => {
 console.log('Earth Screensaver initialized');
 
   // End of initializeGlobeFeatures()
+}
+
+// ============================================================================
+// COMPANY LOGO LOADER
+// ============================================================================
+function loadCompanyLogo() {
+  const logoContainer = document.getElementById('companyLogo');
+  const logoImg = logoContainer.querySelector('img');
+  const controlsPanel = document.getElementById('controlsPanel');
+
+  // Try to load logo from src/logo/logo.png
+  logoImg.src = '../logo/logo.png';
+
+  logoImg.onload = function() {
+    console.log('[Logo] Company logo loaded successfully');
+    logoContainer.classList.add('loaded');
+
+    // Reposition controls panel underneath logo with 50px gap
+    const logoHeight = logoContainer.offsetHeight;
+    controlsPanel.style.top = (20 + logoHeight + 50) + 'px';
+  };
+
+  logoImg.onerror = function() {
+    console.log('[Logo] No company logo found - using default layout');
+    // Keep logo hidden, controls stay at default position
+    logoContainer.style.display = 'none';
+  };
 }
 
 // ============================================================================

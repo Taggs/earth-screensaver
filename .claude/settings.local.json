@@ -20,7 +20,18 @@
       "Bash(set:*)",
       "Bash(./EarthScreensaver.exe)",
       "Bash(npx asar:*)",
-      "Bash(CSC_IDENTITY_AUTO_DISCOVERY=false WIN_CSC_LINK= npx electron-builder --win --dir)"
+      "Bash(CSC_IDENTITY_AUTO_DISCOVERY=false WIN_CSC_LINK= npx electron-builder --win --dir)",
+      "Bash(xargs cat:*)",
+      "Bash(du -sh:*)",
+      "Bash(grep:*)",
+      "Bash(npm install:*)",
+      "Bash(mkdir:*)",
+      "Bash(node -c:*)",
+      "Bash(git stash:*)",
+      "Bash(git checkout:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(rm:*)",
+      "Bash(\"./node_modules/electron/dist/electron.exe\" . --dev)"
     ]
   }
 }
