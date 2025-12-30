@@ -28,9 +28,14 @@
     "directories": {
       "output": "dist"
     },
+    "asarUnpack": [
+      "src/main/config.js"
+    ],
     "files": [
       "src/**/*",
-      "!src/**/*.map"
+      "!src/**/*.map",
+      ".env",
+      "node_modules/**/*"
     ],
     "extraResources": [
       {
@@ -47,14 +52,20 @@
     "win": {
       "target": [
         {
-          "target": "portable",
+          "target": "nsis",
           "arch": [
             "x64"
           ]
         }
       ],
       "requestedExecutionLevel": "asInvoker",
-      "artifactName": "${productName}.${ext}"
+      "artifactName": "${productName}-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     }
   }
 }

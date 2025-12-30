@@ -45,8 +45,9 @@ const CONFIG = {
 const userLanguage = (navigator.language || navigator.userLanguage || 'en').split('-')[0]; // e.g., "en", "es", "fr"
 console.log('[Language] Detected user language:', userLanguage);
 
-// Translation enabled by default
+// Feature toggles - will be overridden by saved settings
 let translationEnabled = true;
+let weatherEnabled = true;
 
 // ============================================================================
 // INITIALIZATION
@@ -526,7 +527,19 @@ const ISO3_TO_ISO2 = {
   'TCD': 'td', 'SOM': 'so', 'LKA': 'lk', 'NPL': 'np', 'AFG': 'af',
   'KAZ': 'kz', 'UZB': 'uz', 'TKM': 'tm', 'KGZ': 'kg', 'TJK': 'tj',
   'MNG': 'mn', 'PRK': 'kp', 'MMR': 'mm', 'KHM': 'kh', 'LAO': 'la',
-  'BRN': 'bn', 'TWN': 'tw', 'HKG': 'hk', 'MAC': 'mo'
+  'BRN': 'bn', 'TWN': 'tw', 'HKG': 'hk', 'MAC': 'mo',
+  // Additional 60 countries previously missing
+  'ALB': 'al', 'ARM': 'am', 'AZE': 'az', 'BIH': 'ba', 'BLR': 'by',
+  'BRB': 'bb', 'BDI': 'bi', 'BEN': 'bj', 'BHS': 'bs', 'BTN': 'bt',
+  'CAF': 'cf', 'COD': 'cd', 'COG': 'cg', 'CYP': 'cy', 'DJI': 'dj',
+  'ERI': 'er', 'ESH': 'eh', 'FJI': 'fj', 'GAB': 'ga', 'GEO': 'ge',
+  'GIN': 'gn', 'GMB': 'gm', 'GNB': 'gw', 'GNQ': 'gq', 'GRL': 'gl',
+  'GUF': 'gf', 'GUY': 'gy', 'HTI': 'ht', 'ISL': 'is', 'JAM': 'jm',
+  'LBR': 'lr', 'LSO': 'ls', 'LUX': 'lu', 'MDA': 'md', 'MKD': 'mk',
+  'MLT': 'mt', 'MNE': 'me', 'MRT': 'mr', 'MWI': 'mw', 'PNG': 'pg',
+  'PRI': 'pr', 'PSE': 'ps', 'RWA': 'rw', 'SLE': 'sl', 'SLB': 'sb',
+  'SSD': 'ss', 'SUR': 'sr', 'SWZ': 'sz', 'TGO': 'tg', 'TLS': 'tl',
+  'TTO': 'tt', 'VUT': 'vu'
 };
 
 function resolveCountryCode(countryName, iso3Code) {
@@ -727,6 +740,8 @@ let currentView = 'feed'; // 'feed' or 'article'
 
 // Critical Fix #1: News API caching to prevent N+1 queries
 const newsCache = new Map();
+const statsCache = new Map();
+let currentTab = 'news'; // 'news' or 'stats'
 
 // High Fix #11: Define handlers outside to enable proper cleanup
 function handleNewsBoxDrag(e) {
@@ -794,34 +809,140 @@ newsBoxClose.addEventListener('click', () => {
   hideNewsBox();
 });
 
+// Tab switching handlers
+const newsTab = document.getElementById('newsTab');
+const statsTab = document.getElementById('statsTab');
+
+newsTab.addEventListener('click', () => {
+  if (currentTab === 'news') return;
+
+  currentTab = 'news';
+  newsTab.classList.add('active');
+  statsTab.classList.remove('active');
+
+  // Re-render news view
+  if (currentNewsData && currentNewsData.articles) {
+    if (currentView === 'feed') {
+      const articlesSource = (translationEnabled && currentNewsData.translatedArticles)
+        ? currentNewsData.translatedArticles
+        : currentNewsData.articles;
+      renderNewsFeed(articlesSource);
+    }
+  }
+});
+
+statsTab.addEventListener('click', () => {
+  if (currentTab === 'stats') return;
+
+  currentTab = 'stats';
+  statsTab.classList.add('active');
+  newsTab.classList.remove('active');
+
+  // Load and render stats
+  showStatsView();
+});
+
 // Title click to open in browser
 newsBoxTitle.addEventListener('click', (e) => {
   e.preventDefault();
-  if (currentNewsData && currentNewsData.countryCode) {
+  if (currentNewsData && currentNewsData.countryCode && window.electronAPI) {
     const newsUrl = `https://news.google.com/search?q=${encodeURIComponent(currentNewsData.countryName)}&hl=en-US&gl=US&ceid=US:en`;
-    window.open(newsUrl, '_blank');
+    window.electronAPI.openExternal(newsUrl);
   }
 });
 
 // Map country codes to their primary language
 const COUNTRY_LANGUAGES = {
+  // Western Europe
+  'es': 'es', // Spain - Spanish
+  'fr': 'fr', // France - French
+  'de': 'de', // Germany - German
+  'it': 'it', // Italy - Italian
+  'pt': 'pt', // Portugal - Portuguese
+  'nl': 'nl', // Netherlands - Dutch
+  'pl': 'pl', // Poland - Polish
+  'ro': 'ro', // Romania - Romanian
+  'gr': 'el', // Greece - Greek
+  'tr': 'tr', // Turkey - Turkish
+  'cz': 'cs', // Czech Republic - Czech
+  'hu': 'hu', // Hungary - Hungarian
+  'se': 'sv', // Sweden - Swedish
+  'no': 'no', // Norway - Norwegian
+  'dk': 'da', // Denmark - Danish
+  'fi': 'fi', // Finland - Finnish
+  'be': 'nl', // Belgium - Dutch (also French, but nl is primary)
+  'ch': 'de', // Switzerland - German (also French/Italian, but de is primary)
+  'at': 'de', // Austria - German
+
+  // Eastern Europe & Russia
   'ua': 'uk', // Ukraine - Ukrainian
   'ru': 'ru', // Russia - Russian
+  'rs': 'sr', // Serbia - Serbian
+  'hr': 'hr', // Croatia - Croatian
+  'bg': 'bg', // Bulgaria - Bulgarian
+  'sk': 'sk', // Slovakia - Slovak
+  'si': 'sl', // Slovenia - Slovenian
+  'lt': 'lt', // Lithuania - Lithuanian
+  'lv': 'lv', // Latvia - Latvian
+  'ee': 'et', // Estonia - Estonian
+
+  // Asia
   'cn': 'zh', // China - Chinese
   'jp': 'ja', // Japan - Japanese
   'kr': 'ko', // Korea - Korean
+  'tw': 'zh', // Taiwan - Chinese
+  'hk': 'zh', // Hong Kong - Chinese
+  'th': 'th', // Thailand - Thai
+  'vn': 'vi', // Vietnam - Vietnamese
+  'id': 'id', // Indonesia - Indonesian
+  'my': 'ms', // Malaysia - Malay
+  'ph': 'tl', // Philippines - Tagalog
+  'pk': 'ur', // Pakistan - Urdu
+  'bd': 'bn', // Bangladesh - Bengali
+  'in': 'hi', // India - Hindi
+
+  // Middle East
   'sa': 'ar', // Saudi Arabia - Arabic
   'ae': 'ar', // UAE - Arabic
   'eg': 'ar', // Egypt - Arabic
   'il': 'he', // Israel - Hebrew
   'ir': 'fa', // Iran - Farsi/Persian
-  'tr': 'tr', // Turkey - Turkish
-  'gr': 'el', // Greece - Greek
-  'th': 'th', // Thailand - Thai
-  'vn': 'vi', // Vietnam - Vietnamese
-  'tw': 'zh', // Taiwan - Chinese
-  'hk': 'zh', // Hong Kong - Chinese
-  // Most others default to English or their ISO code
+  'iq': 'ar', // Iraq - Arabic
+  'sy': 'ar', // Syria - Arabic
+  'lb': 'ar', // Lebanon - Arabic
+  'jo': 'ar', // Jordan - Arabic
+  'ye': 'ar', // Yemen - Arabic
+
+  // Latin America
+  'mx': 'es', // Mexico - Spanish
+  'ar': 'es', // Argentina - Spanish
+  'co': 'es', // Colombia - Spanish
+  've': 'es', // Venezuela - Spanish
+  'cl': 'es', // Chile - Spanish
+  'pe': 'es', // Peru - Spanish
+  'br': 'pt', // Brazil - Portuguese
+  'uy': 'es', // Uruguay - Spanish
+  'py': 'es', // Paraguay - Spanish
+  'bo': 'es', // Bolivia - Spanish
+  'ec': 'es', // Ecuador - Spanish
+  'cu': 'es', // Cuba - Spanish
+
+  // Africa
+  'za': 'en', // South Africa - English (also Afrikaans, but en is widely used)
+  'ma': 'ar', // Morocco - Arabic
+  'dz': 'ar', // Algeria - Arabic
+  'tn': 'ar', // Tunisia - Arabic
+  'ly': 'ar', // Libya - Arabic
+
+  // English-speaking countries (explicit for clarity)
+  'us': 'en', // United States
+  'gb': 'en', // United Kingdom
+  'ca': 'en', // Canada (also French)
+  'au': 'en', // Australia
+  'nz': 'en', // New Zealand
+  'ie': 'en', // Ireland
+
+  // Default to English for all others
 };
 
 // Translate text using Google Translate API (via mymemory.translated.net - free alternative)
@@ -835,15 +956,26 @@ async function translateText(text, sourceLang, targetLang) {
   if (sourceLang && targetLang === sourceLang) return text;
 
   try {
-    // Limit text length to avoid "414 URI Too Long" errors
-    // MyMemory API has a practical limit around 500 characters per request
-    const maxLength = 500;
-    const textToTranslate = text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+    // MyMemory API has a 500 character limit for the ENCODED query
+    // We need to truncate based on encoded length, not raw text length
+    let textToTranslate = text;
+    let encodedText = encodeURIComponent(textToTranslate);
 
-    const encodedText = encodeURIComponent(textToTranslate);
-    // Auto-detect source language if not provided
-    const langPair = sourceLang ? `${sourceLang}|${targetLang}` : `${targetLang}`;
+    // If encoded text exceeds limit, progressively shorten until it fits
+    const maxEncodedLength = 450; // Conservative limit to be safe
+    while (encodedText.length > maxEncodedLength && textToTranslate.length > 10) {
+      // Remove ~10% of text each iteration
+      const newLength = Math.floor(textToTranslate.length * 0.9);
+      textToTranslate = textToTranslate.substring(0, newLength) + '...';
+      encodedText = encodeURIComponent(textToTranslate);
+    }
+
+    // MyMemory API requires format: sourceLang|targetLang
+    // If no source language, auto-detect by using empty string before pipe
+    const langPair = sourceLang ? `${sourceLang}|${targetLang}` : `|${targetLang}`;
     const url = `https://api.mymemory.translated.net/get?q=${encodedText}&langpair=${langPair}`;
+
+    console.log(`[Translation] Translating "${text.substring(0, 50)}..." from ${sourceLang || 'auto'} to ${targetLang} (encoded: ${encodedText.length} chars)`);
 
     const response = await fetch(url);
 
@@ -857,7 +989,13 @@ async function translateText(text, sourceLang, targetLang) {
     const data = await response.json();
 
     if (data.responseStatus === 200 && data.responseData && data.responseData.translatedText) {
+      console.log('[Translation] Success:', data.responseData.translatedText.substring(0, 50) + '...');
       return data.responseData.translatedText;
+    }
+
+    // Log translation failure details
+    if (data.responseStatus !== 200) {
+      console.warn('[Translation] API returned status', data.responseStatus, ':', data.responseDetails || 'No details');
     }
 
     return text; // Return original if translation fails
@@ -963,10 +1101,28 @@ async function showNewsBox(countryName, iso3Code) {
   newsBoxTitle.textContent = displayTitle;
   newsBox.classList.add('active');
   currentView = 'feed';
-  currentNewsData = { countryName, iso3Code, countryCode };
+
+  // Store previous tab selection
+  const previousTab = currentTab;
+
+  // Only reset to news tab if newsBox was not already active
+  if (!currentNewsData) {
+    currentTab = 'news';
+    document.getElementById('newsTab').classList.add('active');
+    document.getElementById('statsTab').classList.remove('active');
+  }
+
+  // Store both ISO-3 (cleaned) and ISO-2 codes for stats and news APIs
+  currentNewsData = { countryName, iso3Code: cleanIso3Code, countryCode };
 
   console.log('[News Debug] Resolved country code:', countryCode);
   console.log('[Translation] User language:', userLanguage, '| Translation enabled:', translationEnabled);
+
+  // If Stats tab was selected, load stats for new country
+  if (currentTab === 'stats') {
+    showStatsView();
+    return;
+  }
 
   // Check if country has no news coverage
   if (!countryCode) {
@@ -1205,6 +1361,7 @@ function hideNewsBox() {
   newsBox.classList.remove('active');
   currentNewsData = null;
   currentView = 'feed';
+  currentTab = 'news';
 
   // Deselect all countries
   if (highlightedEntity && highlightedEntity.polygon) {
@@ -1244,6 +1401,172 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// ============================================================================
+// COUNTRY STATS FUNCTIONS
+// ============================================================================
+
+async function showStatsView() {
+  if (!currentNewsData || !currentNewsData.iso3Code) {
+    newsBoxContent.innerHTML = '<div class="loading">No country selected</div>';
+    return;
+  }
+
+  const iso3Code = currentNewsData.iso3Code;
+  const iso2Code = currentNewsData.countryCode; // This is the resolved ISO-2 code
+
+  // Show loading state
+  newsBoxContent.innerHTML = '<div class="loading">Loading country statistics...</div>';
+
+  try {
+    let stats;
+
+    // Check cache first (use ISO-3 as cache key)
+    if (statsCache.has(iso3Code)) {
+      console.log('[Stats] Using cached stats for:', iso3Code);
+      stats = statsCache.get(iso3Code);
+    } else {
+      console.log('[Stats] Fetching stats for ISO-3:', iso3Code, 'ISO-2:', iso2Code);
+
+      // Fetch from API via IPC
+      if (window.electronAPI && window.electronAPI.fetchCountryStats) {
+        stats = await window.electronAPI.fetchCountryStats(iso3Code, iso2Code);
+
+        if (stats) {
+          statsCache.set(iso3Code, stats);
+        } else {
+          throw new Error('No stats returned from API');
+        }
+      } else {
+        // Fallback for testing in browser
+        stats = {
+          name: currentNewsData.countryName,
+          flag: `https://flagcdn.com/w320/${iso2Code}.png`,
+          currency: { code: 'USD', name: 'US Dollar', symbol: '$' },
+          population: 331000000,
+          gdp: 63000,
+          birthRate: 11.0,
+          deathRate: 8.9,
+          lastUpdated: '2024-01-01'
+        };
+        statsCache.set(iso3Code, stats);
+      }
+    }
+
+    renderStatsGrid(stats, iso3Code, iso2Code);
+
+  } catch (error) {
+    console.error('[Stats] Failed to load stats:', error);
+    newsBoxContent.innerHTML = `
+      <div class="loading">
+        Failed to load statistics<br><br>
+        ${escapeHtml(error.message || 'Unknown error')}
+      </div>
+    `;
+  }
+}
+
+function renderStatsGrid(stats, iso3Code, iso2Code) {
+  // Format data with fallbacks
+  const flagUrl = stats.flag || `https://flagcdn.com/w320/${iso2Code}.png`;
+
+  const currencyCode = stats.currency?.code || 'N/A';
+  const currencyName = stats.currency?.name || '';
+  const currencySymbol = stats.currency?.symbol || '';
+
+  const populationDisplay = stats.population
+    ? stats.population.toLocaleString()
+    : 'N/A';
+
+  const gdpDisplay = stats.gdp
+    ? `$${stats.gdp.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : 'N/A';
+
+  const birthRateDisplay = stats.birthRate
+    ? `${stats.birthRate.toFixed(1)} per 1,000`
+    : 'N/A';
+
+  const deathRateDisplay = stats.deathRate
+    ? `${stats.deathRate.toFixed(1)} per 1,000`
+    : 'N/A';
+
+  const lastUpdated = stats.lastUpdated
+    ? new Date(stats.lastUpdated).toLocaleDateString()
+    : 'Unknown';
+
+  // Render grid
+  newsBoxContent.innerHTML = `
+    <div class="stats-grid">
+      <div class="stats-card full-width">
+        <img src="${escapeHtml(flagUrl)}"
+             alt="Flag of ${escapeHtml(stats.name || currentNewsData.countryName)}"
+             class="stats-flag"
+             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+        <div style="display:none; text-align:center; padding:20px; color:rgba(255,255,255,0.4);">Flag unavailable</div>
+        <div class="stats-card-label">Country</div>
+        <div class="stats-card-value">${escapeHtml(stats.name || currentNewsData.countryName)}</div>
+      </div>
+
+      <div class="stats-card">
+        <div class="stats-card-label">Currency</div>
+        <div class="stats-card-value">${escapeHtml(currencyCode)}</div>
+        ${currencyName ? `<div class="stats-card-subtext">${escapeHtml(currencySymbol)} ${escapeHtml(currencyName)}</div>` : ''}
+      </div>
+
+      <div class="stats-card">
+        <div class="stats-card-label">Population</div>
+        <div class="stats-card-value">${populationDisplay}</div>
+      </div>
+
+      <div class="stats-card">
+        <div class="stats-card-label">GDP per Capita</div>
+        <div class="stats-card-value">${gdpDisplay}</div>
+        ${stats.gdp ? '<div class="stats-card-subtext">Current USD</div>' : ''}
+      </div>
+
+      <div class="stats-card">
+        <div class="stats-card-label">Birth Rate</div>
+        <div class="stats-card-value">${birthRateDisplay}</div>
+      </div>
+
+      <div class="stats-card">
+        <div class="stats-card-label">Death Rate</div>
+        <div class="stats-card-value">${deathRateDisplay}</div>
+      </div>
+
+      <div class="stats-card full-width">
+        <button class="stats-refresh-btn" id="statsRefreshBtn">
+          🔄 Refresh Data
+        </button>
+        <div class="stats-card-subtext" style="text-align: center; margin-top: 8px;">
+          Last updated: ${lastUpdated}
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Add refresh button handler
+  const refreshBtn = document.getElementById('statsRefreshBtn');
+  refreshBtn.addEventListener('click', async () => {
+    refreshBtn.disabled = true;
+    refreshBtn.textContent = '⏳ Refreshing...';
+
+    try {
+      // Clear cache for this country (use ISO-3 as cache key)
+      statsCache.delete(iso3Code);
+
+      // Re-fetch
+      await showStatsView();
+    } catch (error) {
+      console.error('[Stats] Refresh failed:', error);
+      refreshBtn.disabled = false;
+      refreshBtn.textContent = '❌ Refresh Failed';
+      setTimeout(() => {
+        refreshBtn.textContent = '🔄 Refresh Data';
+      }, 2000);
+    }
+  });
+}
+
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
@@ -1262,8 +1585,14 @@ async function updateWeatherLayer() {
     // Requires API key: https://openweathermap.org/api
     const API_KEY = await window.electronAPI.getApiKey('openweather');
 
+    if (!API_KEY || API_KEY === 'YOUR_OPENWEATHER_API_KEY') {
+      console.warn('[Weather] OpenWeather API key not configured. Weather overlay disabled.');
+      return;
+    }
+
     // High Fix #6: Only create layer if it doesn't exist, avoid recreating
     if (!weatherLayer) {
+      console.log('[Weather] Initializing cloud layer...');
       weatherLayer = viewer.imageryLayers.addImageryProvider(
         new Cesium.UrlTemplateImageryProvider({
           url: `https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=${API_KEY}`,
@@ -1274,11 +1603,16 @@ async function updateWeatherLayer() {
 
       // Make clouds semi-transparent
       weatherLayer.alpha = 0.6;
+
+      // Apply initial visibility based on saved settings
+      weatherLayer.show = weatherEnabled;
+
+      console.log('[Weather] Cloud layer initialized successfully');
     }
     // If layer exists, tiles will auto-update from the server
 
   } catch (error) {
-    console.error('Failed to update weather layer:', error);
+    console.error('[Weather] Failed to update weather layer:', error);
   }
 }
 
@@ -1318,42 +1652,14 @@ async function updateStorms() {
     // Fix #5: Use API key from environment instead of hardcoding
     const API_KEY = await window.electronAPI.getApiKey('openweather');
 
-    // OpenWeatherMap doesn't have a direct storm API, so we'll use example data
-    // In production, you'd use a specialized API like NOAA or hurricane tracking services
-    const activeStorms = [
-      // Example storms - replace with real API data
-       { name: 'Hurricane Example', lat: 25.7617, lon: -80.1918, category: 3, windSpeed: 125 }
-    ];
+    // Storm tracking requires specialized API like NOAA or paid OpenWeather One Call API
+    // One Call API is no longer available in free tier, so we skip storm tracking
+    // In production, you'd use a specialized API like NOAA hurricane tracking services
+    const activeStorms = [];
 
-    // Fetch from alternative API or use simulated data
-    // For now, we'll check severe weather alerts from OpenWeatherMap
-    try {
-      const response = await fetch(
-        `https://api.openweathermap.org/data/2.5/onecall?lat=0&lon=0&exclude=current,minutely,hourly,daily&appid=${API_KEY}`
-      );
-      const data = await response.json();
-
-      // Process alerts if available
-      if (data.alerts) {
-        data.alerts.forEach((alert, index) => {
-          if (alert.event.toLowerCase().includes('hurricane') ||
-              alert.event.toLowerCase().includes('typhoon') ||
-              alert.event.toLowerCase().includes('cyclone')) {
-            // Extract category from description or default to 1
-            const category = extractStormCategory(alert.description) || 1;
-            activeStorms.push({
-              name: alert.event,
-              lat: 0, // Would need geocoding
-              lon: 0,
-              category: category,
-              description: alert.description
-            });
-          }
-        });
-      }
-    } catch (error) {
-      console.log('No storm data available from primary source');
-    }
+    // Note: OpenWeather One Call API (onecall) requires paid subscription
+    // Free tier only supports tile layers and current weather endpoints
+    // Storm/alert data would need NOAA or similar specialized weather service
 
     // Add storm entities to the globe
     activeStorms.forEach((storm, index) => {
@@ -1394,16 +1700,7 @@ function extractStormCategory(description) {
   return match ? parseInt(match[1]) : null;
 }
 
-// Initial weather load
-updateWeatherLayer();
-updateStorms();
-
-// Update weather and storms hourly
-// Fix #2: Store interval ID for cleanup
-weatherUpdateInterval = setInterval(() => {
-  updateWeatherLayer();
-  updateStorms();
-}, CONFIG.WEATHER_UPDATE_INTERVAL);
+// Weather initialization happens after settings are loaded (see below)
 
 // ============================================================================
 // RENDER LOOP
@@ -1427,16 +1724,58 @@ closeButton.addEventListener('click', () => {
 });
 
 // ============================================================================
+// SETTINGS PERSISTENCE
+// ============================================================================
+function loadSettings() {
+  try {
+    const savedSettings = localStorage.getItem('earthScreensaverSettings');
+    if (savedSettings) {
+      const settings = JSON.parse(savedSettings);
+      console.log('[Settings] Loaded saved settings:', settings);
+      return settings;
+    }
+  } catch (error) {
+    console.warn('[Settings] Failed to load settings:', error.message);
+  }
+  // Default settings
+  return {
+    weatherEnabled: true,
+    autoRotate: true,
+    dayNightEnabled: true,
+    translationEnabled: true
+  };
+}
+
+function saveSettings() {
+  try {
+    const settings = {
+      weatherEnabled: weatherCheckbox.checked,
+      autoRotate: autoRotateCheckbox.checked,
+      dayNightEnabled: dayNightCheckbox.checked,
+      translationEnabled: translateCheckbox.checked
+    };
+    localStorage.setItem('earthScreensaverSettings', JSON.stringify(settings));
+    console.log('[Settings] Saved settings:', settings);
+  } catch (error) {
+    console.warn('[Settings] Failed to save settings:', error.message);
+  }
+}
+
+// ============================================================================
 // WEATHER TOGGLE
 // ============================================================================
 const weatherCheckbox = document.getElementById('weatherCheckbox');
-let weatherEnabled = true;
 
 weatherCheckbox.addEventListener('change', (e) => {
   weatherEnabled = e.target.checked;
   if (weatherLayer) {
     weatherLayer.show = weatherEnabled;
+  } else if (weatherEnabled) {
+    // If weather is being enabled for the first time, initialize it
+    updateWeatherLayer();
+    updateStorms();
   }
+  saveSettings();
 });
 
 // ============================================================================
@@ -1449,6 +1788,7 @@ autoRotateCheckbox.addEventListener('change', (e) => {
   if (autoRotate) {
     lastRotateTime = Date.now(); // Reset timer to prevent jumps
   }
+  saveSettings();
 });
 
 // ============================================================================
@@ -1458,6 +1798,7 @@ const dayNightCheckbox = document.getElementById('dayNightCheckbox');
 
 dayNightCheckbox.addEventListener('change', (e) => {
   viewer.scene.globe.enableLighting = e.target.checked;
+  saveSettings();
 });
 
 // ============================================================================
@@ -1465,6 +1806,50 @@ dayNightCheckbox.addEventListener('change', (e) => {
 // ============================================================================
 const translateCheckbox = document.getElementById('translateCheckbox');
 
+// ============================================================================
+// APPLY SAVED SETTINGS ON STARTUP
+// ============================================================================
+const savedSettings = loadSettings();
+
+// Apply to checkboxes
+weatherCheckbox.checked = savedSettings.weatherEnabled;
+autoRotateCheckbox.checked = savedSettings.autoRotate;
+dayNightCheckbox.checked = savedSettings.dayNightEnabled;
+translateCheckbox.checked = savedSettings.translationEnabled;
+
+// Apply to global variables
+weatherEnabled = savedSettings.weatherEnabled;
+autoRotate = savedSettings.autoRotate;
+translationEnabled = savedSettings.translationEnabled;
+
+// Apply day/night lighting to viewer (if viewer is already initialized)
+if (viewer && viewer.scene && viewer.scene.globe) {
+  viewer.scene.globe.enableLighting = savedSettings.dayNightEnabled;
+}
+
+console.log('[Settings] Applied saved settings on startup');
+
+// ============================================================================
+// INITIALIZE WEATHER (after settings loaded)
+// ============================================================================
+// Initial weather load - only if weather is enabled
+if (weatherEnabled) {
+  updateWeatherLayer();
+  updateStorms();
+}
+
+// Update weather and storms hourly - only if weather is enabled
+// Fix #2: Store interval ID for cleanup
+weatherUpdateInterval = setInterval(() => {
+  if (weatherEnabled) {
+    updateWeatherLayer();
+    updateStorms();
+  }
+}, CONFIG.WEATHER_UPDATE_INTERVAL);
+
+// ============================================================================
+// TRANSLATION TOGGLE EVENT HANDLER
+// ============================================================================
 translateCheckbox.addEventListener('change', async (e) => {
   translationEnabled = e.target.checked;
   console.log('[Translation] Translation', translationEnabled ? 'enabled' : 'disabled');
@@ -1500,6 +1885,7 @@ translateCheckbox.addEventListener('change', async (e) => {
       renderNewsFeed(currentNewsData.articles);
     }
   }
+  saveSettings();
 });
 
 // ============================================================================

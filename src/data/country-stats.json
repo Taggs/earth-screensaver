@@ -1,0 +1,332 @@
+{
+  "us": {
+    "gdp": 76398.59,
+    "birthRate": 11.0,
+    "deathRate": 8.9,
+    "lastUpdated": "2024-01-15"
+  },
+  "gb": {
+    "gdp": 46371.28,
+    "birthRate": 10.9,
+    "deathRate": 9.4,
+    "lastUpdated": "2024-01-15"
+  },
+  "ca": {
+    "gdp": 54966.37,
+    "birthRate": 10.2,
+    "deathRate": 8.1,
+    "lastUpdated": "2024-01-15"
+  },
+  "au": {
+    "gdp": 64491.56,
+    "birthRate": 12.3,
+    "deathRate": 6.8,
+    "lastUpdated": "2024-01-15"
+  },
+  "de": {
+    "gdp": 50801.47,
+    "birthRate": 9.4,
+    "deathRate": 11.8,
+    "lastUpdated": "2024-01-15"
+  },
+  "fr": {
+    "gdp": 44408.46,
+    "birthRate": 10.9,
+    "deathRate": 9.6,
+    "lastUpdated": "2024-01-15"
+  },
+  "it": {
+    "gdp": 35551.37,
+    "birthRate": 6.8,
+    "deathRate": 11.1,
+    "lastUpdated": "2024-01-15"
+  },
+  "es": {
+    "gdp": 30115.71,
+    "birthRate": 7.2,
+    "deathRate": 9.8,
+    "lastUpdated": "2024-01-15"
+  },
+  "jp": {
+    "gdp": 33815.38,
+    "birthRate": 6.9,
+    "deathRate": 11.7,
+    "lastUpdated": "2024-01-15"
+  },
+  "cn": {
+    "gdp": 12720.15,
+    "birthRate": 7.5,
+    "deathRate": 7.4,
+    "lastUpdated": "2024-01-15"
+  },
+  "in": {
+    "gdp": 2411.70,
+    "birthRate": 17.0,
+    "deathRate": 7.2,
+    "lastUpdated": "2024-01-15"
+  },
+  "br": {
+    "gdp": 9673.43,
+    "birthRate": 13.4,
+    "deathRate": 6.8,
+    "lastUpdated": "2024-01-15"
+  },
+  "mx": {
+    "gdp": 11497.69,
+    "birthRate": 15.7,
+    "deathRate": 6.0,
+    "lastUpdated": "2024-01-15"
+  },
+  "ru": {
+    "gdp": 12194.78,
+    "birthRate": 9.8,
+    "deathRate": 14.6,
+    "lastUpdated": "2024-01-15"
+  },
+  "za": {
+    "gdp": 6485.87,
+    "birthRate": 19.1,
+    "deathRate": 9.5,
+    "lastUpdated": "2024-01-15"
+  },
+  "kr": {
+    "gdp": 32423.68,
+    "birthRate": 5.9,
+    "deathRate": 6.6,
+    "lastUpdated": "2024-01-15"
+  },
+  "nl": {
+    "gdp": 57016.05,
+    "birthRate": 9.6,
+    "deathRate": 9.2,
+    "lastUpdated": "2024-01-15"
+  },
+  "se": {
+    "gdp": 58529.40,
+    "birthRate": 11.1,
+    "deathRate": 9.5,
+    "lastUpdated": "2024-01-15"
+  },
+  "no": {
+    "gdp": 87711.70,
+    "birthRate": 10.5,
+    "deathRate": 7.9,
+    "lastUpdated": "2024-01-15"
+  },
+  "fi": {
+    "gdp": 51582.79,
+    "birthRate": 8.5,
+    "deathRate": 10.4,
+    "lastUpdated": "2024-01-15"
+  },
+  "dk": {
+    "gdp": 67218.63,
+    "birthRate": 10.5,
+    "deathRate": 9.5,
+    "lastUpdated": "2024-01-15"
+  },
+  "pl": {
+    "gdp": 18281.81,
+    "birthRate": 8.9,
+    "deathRate": 11.1,
+    "lastUpdated": "2024-01-15"
+  },
+  "be": {
+    "gdp": 49882.79,
+    "birthRate": 10.2,
+    "deathRate": 9.8,
+    "lastUpdated": "2024-01-15"
+  },
+  "ch": {
+    "gdp": 91992.89,
+    "birthRate": 10.3,
+    "deathRate": 8.3,
+    "lastUpdated": "2024-01-15"
+  },
+  "at": {
+    "gdp": 53267.37,
+    "birthRate": 9.5,
+    "deathRate": 9.8,
+    "lastUpdated": "2024-01-15"
+  },
+  "ie": {
+    "gdp": 99152.03,
+    "birthRate": 11.7,
+    "deathRate": 6.7,
+    "lastUpdated": "2024-01-15"
+  },
+  "nz": {
+    "gdp": 48424.04,
+    "birthRate": 11.8,
+    "deathRate": 7.1,
+    "lastUpdated": "2024-01-15"
+  },
+  "sg": {
+    "gdp": 72793.87,
+    "birthRate": 8.8,
+    "deathRate": 4.8,
+    "lastUpdated": "2024-01-15"
+  },
+  "hk": {
+    "gdp": 49660.86,
+    "birthRate": 7.9,
+    "deathRate": 7.7,
+    "lastUpdated": "2024-01-15"
+  },
+  "tw": {
+    "gdp": 32782.00,
+    "birthRate": 7.0,
+    "deathRate": 8.0,
+    "lastUpdated": "2024-01-15"
+  },
+  "my": {
+    "gdp": 11993.26,
+    "birthRate": 14.5,
+    "deathRate": 5.3,
+    "lastUpdated": "2024-01-15"
+  },
+  "th": {
+    "gdp": 7232.50,
+    "birthRate": 10.2,
+    "deathRate": 8.1,
+    "lastUpdated": "2024-01-15"
+  },
+  "ph": {
+    "gdp": 3498.88,
+    "birthRate": 21.5,
+    "deathRate": 6.3,
+    "lastUpdated": "2024-01-15"
+  },
+  "id": {
+    "gdp": 4783.95,
+    "birthRate": 16.4,
+    "deathRate": 6.7,
+    "lastUpdated": "2024-01-15"
+  },
+  "vn": {
+    "gdp": 4164.28,
+    "birthRate": 14.8,
+    "deathRate": 6.2,
+    "lastUpdated": "2024-01-15"
+  },
+  "pk": {
+    "gdp": 1568.14,
+    "birthRate": 26.1,
+    "deathRate": 6.4,
+    "lastUpdated": "2024-01-15"
+  },
+  "bd": {
+    "gdp": 2457.41,
+    "birthRate": 17.7,
+    "deathRate": 5.4,
+    "lastUpdated": "2024-01-15"
+  },
+  "eg": {
+    "gdp": 3832.64,
+    "birthRate": 20.7,
+    "deathRate": 4.9,
+    "lastUpdated": "2024-01-15"
+  },
+  "ng": {
+    "gdp": 2184.40,
+    "birthRate": 35.2,
+    "deathRate": 11.8,
+    "lastUpdated": "2024-01-15"
+  },
+  "ke": {
+    "gdp": 2081.19,
+    "birthRate": 26.1,
+    "deathRate": 5.4,
+    "lastUpdated": "2024-01-15"
+  },
+  "ar": {
+    "gdp": 10645.07,
+    "birthRate": 15.4,
+    "deathRate": 7.5,
+    "lastUpdated": "2024-01-15"
+  },
+  "cl": {
+    "gdp": 15355.26,
+    "birthRate": 11.9,
+    "deathRate": 6.5,
+    "lastUpdated": "2024-01-15"
+  },
+  "co": {
+    "gdp": 6630.24,
+    "birthRate": 14.7,
+    "deathRate": 6.3,
+    "lastUpdated": "2024-01-15"
+  },
+  "pe": {
+    "gdp": 6628.14,
+    "birthRate": 17.2,
+    "deathRate": 6.0,
+    "lastUpdated": "2024-01-15"
+  },
+  "ve": {
+    "gdp": 4290.77,
+    "birthRate": 16.7,
+    "deathRate": 7.2,
+    "lastUpdated": "2024-01-15"
+  },
+  "tr": {
+    "gdp": 10673.86,
+    "birthRate": 13.9,
+    "deathRate": 6.1,
+    "lastUpdated": "2024-01-15"
+  },
+  "sa": {
+    "gdp": 30447.35,
+    "birthRate": 14.1,
+    "deathRate": 3.4,
+    "lastUpdated": "2024-01-15"
+  },
+  "ae": {
+    "gdp": 44315.29,
+    "birthRate": 10.0,
+    "deathRate": 1.5,
+    "lastUpdated": "2024-01-15"
+  },
+  "il": {
+    "gdp": 52170.78,
+    "birthRate": 19.0,
+    "deathRate": 5.2,
+    "lastUpdated": "2024-01-15"
+  },
+  "gr": {
+    "gdp": 19827.38,
+    "birthRate": 7.6,
+    "deathRate": 12.0,
+    "lastUpdated": "2024-01-15"
+  },
+  "pt": {
+    "gdp": 23407.93,
+    "birthRate": 7.9,
+    "deathRate": 11.3,
+    "lastUpdated": "2024-01-15"
+  },
+  "cz": {
+    "gdp": 26378.02,
+    "birthRate": 10.3,
+    "deathRate": 11.7,
+    "lastUpdated": "2024-01-15"
+  },
+  "ro": {
+    "gdp": 14866.68,
+    "birthRate": 9.2,
+    "deathRate": 14.4,
+    "lastUpdated": "2024-01-15"
+  },
+  "hu": {
+    "gdp": 18773.61,
+    "birthRate": 9.0,
+    "deathRate": 13.8,
+    "lastUpdated": "2024-01-15"
+  },
+  "ua": {
+    "gdp": 4534.63,
+    "birthRate": 7.8,
+    "deathRate": 18.6,
+    "lastUpdated": "2024-01-15"
+  }
+}

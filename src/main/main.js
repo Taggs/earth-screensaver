@@ -3,6 +3,8 @@ const { app, BrowserWindow, ipcMain, powerMonitor, screen, shell } = require('el
 const path = require('path');
 const feedLoader = require('./feed-loader');
 const feedParser = require('./feed-parser');
+const config = require('./config');
+// const statsFetcher = require('./stats-fetcher');
 
 let mainWindow = null;
 let configWindow = null;
@@ -244,11 +246,13 @@ app.on('window-all-closed', () => {
 ipcMain.handle('get-api-key', async (event, keyName) => {
   switch (keyName) {
     case 'cesium':
-      return process.env.CESIUM_ION_TOKEN || 'YOUR_CESIUM_ION_TOKEN';
+      return config.getConfig('CESIUM_ION_TOKEN', process.env.CESIUM_ION_TOKEN || '');
     case 'openweather':
-      return process.env.OPENWEATHER_API_KEY || 'YOUR_OPENWEATHER_API_KEY';
+      return config.getConfig('OPENWEATHER_API_KEY', process.env.OPENWEATHER_API_KEY || '');
     case 'news':
-      return process.env.NEWS_API_KEY || 'YOUR_NEWS_API_KEY';
+      return config.getConfig('NEWS_API_KEY', process.env.NEWS_API_KEY || '');
+    case 'worldnews':
+      return config.getConfig('WORLDNEWS_API_KEY', process.env.WORLDNEWS_API_KEY || '');
     default:
       throw new Error(`Unknown API key: ${keyName}`);
   }
@@ -348,6 +352,43 @@ ipcMain.handle('fetch-news', async (event, countryCode) => {
         articles: []
       };
     }
+  }
+});
+
+// Handle country stats requests
+ipcMain.handle('fetch-country-stats', async (event, iso3Code, iso2Code) => {
+  console.log('[Main Process] fetch-country-stats called with ISO-3:', iso3Code, 'ISO-2:', iso2Code);
+
+  // Lazy load stats-fetcher to avoid initialization issues
+  const statsFetcher = require('./stats-fetcher');
+
+  try {
+    const stats = await statsFetcher.fetchCountryStats(iso3Code, iso2Code);
+    return stats;
+  } catch (error) {
+    console.error('[Main Process] Stats fetch failed:', error);
+
+    // Fallback to bundled data only
+    try {
+      const fs = require('fs');
+      const bundledPath = path.join(__dirname, '../data/country-stats.json');
+      const bundledContent = fs.readFileSync(bundledPath, 'utf8');
+      const bundled = JSON.parse(bundledContent);
+
+      if (bundled[iso2Code]) {
+        return {
+          name: iso3Code.toUpperCase(),
+          flag: `https://flagcdn.com/w320/${iso2Code}.png`,
+          currency: null,
+          population: null,
+          ...bundled[iso2Code]
+        };
+      }
+    } catch (fallbackError) {
+      console.error('[Main Process] Fallback also failed:', fallbackError);
+    }
+
+    throw new Error(`No stats available for: ${iso3Code}`);
   }
 });
 

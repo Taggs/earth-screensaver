@@ -31,7 +31,18 @@
       "Bash(git checkout:*)",
       "Bash(npm uninstall:*)",
       "Bash(rm:*)",
-      "Bash(\"./node_modules/electron/dist/electron.exe\" . --dev)"
+      "Bash(\"./node_modules/electron/dist/electron.exe\" . --dev)",
+      "Bash(comm -23:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(node transform-geojson.js:*)",
+      "Bash(node check-france.js:*)",
+      "Bash(node test-world-bank.js:*)",
+      "Bash(node check-world-bank-response.js:*)",
+      "Bash(node test-fixed-api.js:*)",
+      "Bash(npm start -- --dev)",
+      "Bash(npm run build:win:scr:*)",
+      "Bash(node scripts/create-scr.js:*)"
     ]
   }
 }
