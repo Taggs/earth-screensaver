@@ -42,7 +42,14 @@
       "Bash(node test-fixed-api.js:*)",
       "Bash(npm start -- --dev)",
       "Bash(npm run build:win:scr:*)",
-      "Bash(node scripts/create-scr.js:*)"
+      "Bash(node scripts/create-scr.js:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(powershell -c \"$env:CSC_IDENTITY_AUTO_DISCOVERY=''false''; npm run build:win\")",
+      "Bash(dir:*)",
+      "Bash(ls:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
