@@ -65,8 +65,10 @@ function createWindow() {
     }
   });
 
-  // ALWAYS open dev tools for debugging
-  mainWindow.webContents.openDevTools();
+  // Only open dev tools in development mode
+  if (isDev) {
+    mainWindow.webContents.openDevTools();
+  }
 
   // Log any console messages from renderer
   mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {

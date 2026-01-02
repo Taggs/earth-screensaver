@@ -59,7 +59,9 @@
         }
       ],
       "requestedExecutionLevel": "asInvoker",
-      "artifactName": "${productName}-Setup.${ext}"
+      "artifactName": "${productName}-Setup.${ext}",
+      "sign": null,
+      "signingHashAlgorithms": []
     },
     "nsis": {
       "oneClick": false,

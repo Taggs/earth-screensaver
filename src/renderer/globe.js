@@ -9,7 +9,7 @@ const CONFIG = {
   CESIUM_ION_TOKEN: 'YOUR_CESIUM_ION_TOKEN',
 
   // Rotation speed (radians per second)
-  ROTATION_SPEED: 0.0001,
+  ROTATION_SPEED: 0.001,
 
   // Weather update interval (ms)
   WEATHER_UPDATE_INTERVAL: 60 * 60 * 1000, // 1 hour
@@ -366,18 +366,18 @@ function updateLabelVisibility() {
   lastLabelUpdateTime = now;
 
   cityLabels.forEach(({ label, billboard, isCapital, population }) => {
-    // Determine max visible distance based on city type
-    let maxDistance;
+    // At default zoom (15M+ km), only show capitals
+    // As user zooms in, show major cities, then all cities
+    let shouldShow = false;
+
     if (isCapital) {
-      maxDistance = CONFIG.LABELS.CAPITAL_MAX_DISTANCE;
+      shouldShow = cameraHeight <= CONFIG.LABELS.CAPITAL_MAX_DISTANCE;
     } else if (population >= CONFIG.LABELS.MAJOR_CITY_POPULATION) {
-      maxDistance = CONFIG.LABELS.MAJOR_CITY_MAX_DISTANCE;
+      shouldShow = cameraHeight <= CONFIG.LABELS.MAJOR_CITY_MAX_DISTANCE;
     } else {
-      maxDistance = CONFIG.LABELS.SECONDARY_CITY_MAX_DISTANCE;
+      shouldShow = cameraHeight <= CONFIG.LABELS.SECONDARY_CITY_MAX_DISTANCE;
     }
 
-    // Show/hide based on camera height (simpler than per-label distance)
-    const shouldShow = cameraHeight <= maxDistance;
     label.show = shouldShow;
     billboard.show = shouldShow;
   });
@@ -787,8 +787,20 @@ function handleNewsBoxDragEnd(e) {
   }
 }
 
-// Draggable functionality
-newsBoxHeader.addEventListener('mousedown', (e) => {
+// Draggable functionality - only active when news box is open
+function attachNewsBoxDragListeners() {
+  newsBoxHeader.addEventListener('mousedown', handleNewsBoxHeaderMouseDown);
+}
+
+function detachNewsBoxDragListeners() {
+  newsBoxHeader.removeEventListener('mousedown', handleNewsBoxHeaderMouseDown);
+  // Also clean up any active drag listeners
+  document.removeEventListener('mousemove', handleNewsBoxDrag);
+  document.removeEventListener('mouseup', handleNewsBoxDragEnd);
+  isDraggingNewsBox = false;
+}
+
+function handleNewsBoxHeaderMouseDown(e) {
   if (e.target === newsBoxClose || e.target.tagName === 'A') return;
 
   isDraggingNewsBox = true;
@@ -796,13 +808,13 @@ newsBoxHeader.addEventListener('mousedown', (e) => {
   dragOffsetY = e.clientY - newsBox.offsetTop;
   newsBox.style.cursor = 'grabbing';
 
-  // High Fix #11: Only attach listeners when actually dragging
+  // Only attach listeners when actually dragging
   document.addEventListener('mousemove', handleNewsBoxDrag);
   document.addEventListener('mouseup', handleNewsBoxDragEnd);
 
   e.preventDefault();
   e.stopPropagation(); // Prevent globe rotation
-});
+}
 
 // Close button
 newsBoxClose.addEventListener('click', () => {
@@ -1102,6 +1114,9 @@ async function showNewsBox(countryName, iso3Code) {
   newsBox.classList.add('active');
   currentView = 'feed';
 
+  // Attach drag listeners when news box opens
+  attachNewsBoxDragListeners();
+
   // Store previous tab selection
   const previousTab = currentTab;
 
@@ -1362,6 +1377,12 @@ function hideNewsBox() {
   currentNewsData = null;
   currentView = 'feed';
   currentTab = 'news';
+
+  // Detach drag listeners when news box closes
+  detachNewsBoxDragListeners();
+
+  // Remove news content click listener
+  newsBoxContent.removeEventListener('click', handleNewsArticleClick);
 
   // Deselect all countries
   if (highlightedEntity && highlightedEntity.polygon) {
@@ -2057,6 +2078,19 @@ function cleanup() {
     countryInteractionHandler.destroy();
     countryInteractionHandler = null;
   }
+
+  // Cleanup news box drag listeners
+  detachNewsBoxDragListeners();
+
+  // Cleanup news content click listener
+  newsBoxContent.removeEventListener('click', handleNewsArticleClick);
+
+  // Clear news and stats caches to free memory
+  newsCache.clear();
+  statsCache.clear();
+
+  // Clear original style map to prevent memory leaks
+  originalStyleByEntity.clear();
 
   console.log('[EarthScreensaver] Cleanup completed');
 }
