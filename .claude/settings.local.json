@@ -49,7 +49,9 @@
       "Bash(dir:*)",
       "Bash(ls:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(node check-territories.js:*)",
+      "Bash(node check-properties.js:*)"
     ]
   }
 }

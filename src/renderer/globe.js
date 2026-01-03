@@ -35,6 +35,33 @@ const CONFIG = {
     CAPITAL_FONT_SIZE: 16,
     MAJOR_CITY_FONT_SIZE: 12,
     SECONDARY_CITY_FONT_SIZE: 10
+  },
+
+  // Performance optimization settings
+  PERFORMANCE: {
+    // Screen space error - higher values = lower quality/better performance
+    // Default: 2.0, Recommended for performance: 4.0-8.0
+    maximumScreenSpaceError: 6.0,
+
+    // Tile cache size (MB) - lower = less memory but more loading
+    // Default: 512 MB
+    tileCacheSize: 256,
+
+    // Quality presets for user selection
+    PRESETS: {
+      HIGH_QUALITY: {
+        maximumScreenSpaceError: 2.0,
+        tileCacheSize: 512
+      },
+      BALANCED: {
+        maximumScreenSpaceError: 6.0,
+        tileCacheSize: 256
+      },
+      HIGH_PERFORMANCE: {
+        maximumScreenSpaceError: 8.0,
+        tileCacheSize: 128
+      }
+    }
   }
 };
 
@@ -129,12 +156,12 @@ async function initializeApp() {
       fullscreenButton: false,
       vrButton: false,
       selectionIndicator: false,  // Disable green reticle
-      infoBox: false  // Disable info box (camera bar)
-    });
+      infoBox: false,  // Disable info box (camera bar)
 
-    // Keep overlays visible even when clamped entities intersect terrain
-    viewer.scene.globe.depthTestAgainstTerrain = false;
-    viewer.scene.pickTranslucentDepth = false; // Disable to prevent WebGL bindTexture errors
+      // Performance optimization: Enable on-demand rendering
+      requestRenderMode: true,
+      maximumRenderTimeChange: Infinity  // Only render on explicit requests
+    });
 
     console.log('[Globe] Viewer created');
 
@@ -158,14 +185,20 @@ async function initializeApp() {
 
 async function loadBingMapsImagery() {
   try {
+    // Bing Maps Aerial with Labels - satellite imagery (Asset ID 3)
+    // This is included with Cesium Ion free tier
     const imageryProvider = await Cesium.IonImageryProvider.fromAssetId(3);
     const imageryLayer = viewer.imageryLayers.addImageryProvider(imageryProvider);
-    
-    // Enhance color saturation and contrast for deeper colors
-    imageryLayer.saturation = 1.3; // Increase saturation by 30%
-    imageryLayer.contrast = 1.2;   // Increase contrast by 20%
-    imageryLayer.brightness = 0.85; // Slightly reduce brightness to deepen colors
+
+    // Enhance colors for better visibility
+    imageryLayer.saturation = 1.3;
+    imageryLayer.contrast = 1.2;
+    imageryLayer.brightness = 0.85;
+
     console.log('Bing Maps imagery loaded successfully');
+
+    // Request render after imagery loads
+    viewer.scene.requestRender();
   } catch (error) {
     console.error('Failed to load Bing Maps imagery:', error);
   }
@@ -186,6 +219,18 @@ function setupScene() {
   viewer.scene.skyBox.show = false;
   viewer.scene.backgroundColor = Cesium.Color.BLACK;
 
+  // Apply performance optimizations
+  viewer.scene.globe.maximumScreenSpaceError = CONFIG.PERFORMANCE.maximumScreenSpaceError;
+  viewer.scene.globe.tileCacheSize = CONFIG.PERFORMANCE.tileCacheSize;
+
+  // Additional performance optimizations
+  viewer.scene.fog.enabled = false;  // Disable fog for cleaner look and better performance
+  viewer.scene.globe.showGroundAtmosphere = true;  // Keep ground atmosphere for visual quality
+
+  // Enable depth testing so far side of globe is not visible
+  viewer.scene.globe.depthTestAgainstTerrain = true;
+  viewer.scene.pickTranslucentDepth = false;
+
   // Set initial camera position
   viewer.camera.setView({
     destination: Cesium.Cartesian3.fromDegrees(
@@ -195,7 +240,9 @@ function setupScene() {
     )
   });
 
-  console.log('Scene setup completed');
+  console.log('Scene setup completed with performance optimizations');
+  console.log('  maximumScreenSpaceError:', CONFIG.PERFORMANCE.maximumScreenSpaceError);
+  console.log('  tileCacheSize:', CONFIG.PERFORMANCE.tileCacheSize, 'MB');
 }
 
 // ============================================================================
@@ -216,6 +263,129 @@ let preRenderRemoveCallback = null;
 
 // Country interaction
 let countryInteractionHandler = null;
+
+// Performance monitoring
+let performanceStatsEnabled = false;
+let renderCount = 0;
+let lastFrameTime = performance.now();
+let frameTimeSum = 0;
+let frameTimeCount = 0;
+
+// News box DOM elements and drag state
+const newsBox = document.getElementById('newsBox');
+const newsBoxTitle = document.getElementById('newsBoxTitle');
+const newsBoxContent = document.getElementById('newsBoxContent');
+const newsBoxClose = document.getElementById('newsBoxClose');
+const newsBoxHeader = document.getElementById('newsBoxHeader');
+
+let isDraggingNewsBox = false;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+
+// ============================================================================
+// PERFORMANCE MONITORING
+// ============================================================================
+function updatePerformanceStats() {
+  if (!performanceStatsEnabled) return;
+
+  renderCount++;
+
+  const now = performance.now();
+  const frameTime = now - lastFrameTime;
+  lastFrameTime = now;
+
+  frameTimeSum += frameTime;
+  frameTimeCount++;
+
+  // Update stats every 30 frames (~0.5 seconds at 60 FPS)
+  if (frameTimeCount >= 30) {
+    const avgFrameTime = frameTimeSum / frameTimeCount;
+    const fps = Math.round(1000 / avgFrameTime);
+
+    document.getElementById('fpsCounter').textContent = fps;
+    document.getElementById('frameTimeCounter').textContent = avgFrameTime.toFixed(1) + 'ms';
+    document.getElementById('renderCounter').textContent = renderCount;
+
+    frameTimeSum = 0;
+    frameTimeCount = 0;
+  }
+}
+
+// ============================================================================
+// NEWS BOX DRAG HANDLERS (defined at module level for cleanup access)
+// ============================================================================
+// High Fix #11: Define handlers outside initializeGlobeFeatures to enable proper cleanup
+function handleNewsBoxDrag(e) {
+  if (!isDraggingNewsBox) return;
+
+  try {
+    const newX = e.clientX - dragOffsetX;
+    const newY = e.clientY - dragOffsetY;
+
+    // Keep within viewport bounds with safe fallback values
+    const boxWidth = newsBox.offsetWidth || 400;
+    const boxHeight = newsBox.offsetHeight || 600;
+    const viewportWidth = window.innerWidth || 1920;
+    const viewportHeight = window.innerHeight || 1080;
+
+    const maxX = Math.max(0, viewportWidth - boxWidth);
+    const maxY = Math.max(0, viewportHeight - boxHeight);
+
+    const clampedX = Math.max(0, Math.min(newX, maxX));
+    const clampedY = Math.max(0, Math.min(newY, maxY));
+
+    newsBox.style.left = clampedX + 'px';
+    newsBox.style.top = clampedY + 'px';
+    e.stopPropagation(); // Prevent globe rotation while dragging
+  } catch (error) {
+    console.error('[News Box] Drag error:', error);
+    // Stop dragging on error
+    isDraggingNewsBox = false;
+    newsBox.style.cursor = 'move';
+    document.removeEventListener('mousemove', handleNewsBoxDrag);
+    document.removeEventListener('mouseup', handleNewsBoxDragEnd);
+  }
+}
+
+function handleNewsBoxDragEnd(e) {
+  if (isDraggingNewsBox) {
+    isDraggingNewsBox = false;
+    newsBox.style.cursor = 'move';
+    // High Fix #11: Remove listeners when dragging ends
+    document.removeEventListener('mousemove', handleNewsBoxDrag);
+    document.removeEventListener('mouseup', handleNewsBoxDragEnd);
+    e.stopPropagation(); // Prevent globe rotation after drag
+  }
+}
+
+// Draggable functionality - only active when news box is open
+function attachNewsBoxDragListeners() {
+  newsBoxHeader.addEventListener('mousedown', handleNewsBoxHeaderMouseDown);
+}
+
+function detachNewsBoxDragListeners() {
+  newsBoxHeader.removeEventListener('mousedown', handleNewsBoxHeaderMouseDown);
+  // Also clean up any active drag listeners
+  document.removeEventListener('mousemove', handleNewsBoxDrag);
+  document.removeEventListener('mouseup', handleNewsBoxDragEnd);
+  isDraggingNewsBox = false;
+}
+
+function handleNewsBoxHeaderMouseDown(e) {
+  if (e.target === newsBoxClose || e.target.tagName === 'A') return;
+
+  isDraggingNewsBox = true;
+  dragOffsetX = e.clientX - newsBox.offsetLeft;
+  dragOffsetY = e.clientY - newsBox.offsetTop;
+  newsBox.style.cursor = 'grabbing';
+
+  // Only attach listeners when actually dragging
+  document.addEventListener('mousemove', handleNewsBoxDrag);
+  document.addEventListener('mouseup', handleNewsBoxDragEnd);
+
+  e.preventDefault();
+  e.stopPropagation(); // Prevent globe rotation
+}
 
 // ============================================================================
 // GLOBE FEATURES INITIALIZATION
@@ -381,6 +551,9 @@ function updateLabelVisibility() {
     label.show = shouldShow;
     billboard.show = shouldShow;
   });
+
+  // Request render after label visibility changes
+  viewer.scene.requestRender();
 }
 
 // Update labels periodically
@@ -399,6 +572,9 @@ function updateSunPosition() {
 
   // CesiumJS automatically calculates sun position from clock
   viewer.clock.currentTime = julianDate;
+
+  // Request render after sun position update
+  viewer.scene.requestRender();
 }
 
 // Update sun position every minute
@@ -414,14 +590,17 @@ let lastRotateTime = Date.now();
 
 function rotateGlobe() {
   if (!autoRotate) return;
-  
+
   const now = Date.now();
   const delta = (now - lastRotateTime) / 1000;
   lastRotateTime = now;
-  
+
   // Rotate camera around the globe (not the globe itself)
   // This keeps the day/night terminator stationary relative to Earth
   viewer.camera.rotateRight(CONFIG.ROTATION_SPEED * delta * 60);
+
+  // Request render after camera movement
+  viewer.scene.requestRender();
 }
 
 // ============================================================================
@@ -433,12 +612,9 @@ let lastMouseY = 0;
 let mouseDownX = 0;
 let mouseDownY = 0;
 let dragVelocity = 0;
-// Critical Fix #4: decelerateInterval declared at module level (line 190)
+// Critical Fix #4: decelerateInterval declared at module level (line 260)
 
-// News box dragging state (declared before canvas handlers)
-let isDraggingNewsBox = false;
-let dragOffsetX = 0;
-let dragOffsetY = 0;
+// News box dragging state now declared at module level (lines 281-283)
 
 const canvas = viewer.canvas;
 
@@ -463,6 +639,9 @@ canvas.addEventListener('mousemove', (e) => {
   viewer.camera.rotateRight(-dragVelocity);
   lastMouseX = e.clientX;
   lastMouseY = e.clientY;
+
+  // Request render during drag
+  viewer.scene.requestRender();
 });
 
 canvas.addEventListener('mouseup', () => {
@@ -484,6 +663,9 @@ canvas.addEventListener('mouseup', () => {
     }
     viewer.camera.rotateRight(-dragVelocity);
     dragVelocity *= 0.95; // Friction
+
+    // Request render during deceleration
+    viewer.scene.requestRender();
   }, 16);
 });
 
@@ -623,6 +805,7 @@ async function loadCountryBoundaries() {
               outlineWidth: 0.5 // Thinner white borders
             }
           });
+
           createdCount++;
         }
       }
@@ -710,12 +893,15 @@ function setupCountryInteractionHandlers() {
       }).then(() => {
         // After camera arrives, show news
         showNewsBox(countryLabel, iso3Code);
+
+        // Request render after camera movement completes
+        viewer.scene.requestRender();
       });
 
       // Stop auto-rotation immediately
       autoRotate = false;
-      if (autoRotateCheckbox) {
-        autoRotateCheckbox.checked = false;
+      if (autoRotateBtn) {
+        autoRotateBtn.classList.remove('active');
       }
 
       console.log('[EarthScreensaver] Focusing on and showing news for:', countryLabel);
@@ -729,11 +915,7 @@ loadCountryBoundaries();
 // ============================================================================
 // DRAGGABLE NEWS BOX
 // ============================================================================
-const newsBox = document.getElementById('newsBox');
-const newsBoxTitle = document.getElementById('newsBoxTitle');
-const newsBoxContent = document.getElementById('newsBoxContent');
-const newsBoxClose = document.getElementById('newsBoxClose');
-const newsBoxHeader = document.getElementById('newsBoxHeader');
+// News box DOM elements now declared at module level (lines 275-279)
 
 let currentNewsData = null;
 let currentView = 'feed'; // 'feed' or 'article'
@@ -743,78 +925,7 @@ const newsCache = new Map();
 const statsCache = new Map();
 let currentTab = 'news'; // 'news' or 'stats'
 
-// High Fix #11: Define handlers outside to enable proper cleanup
-function handleNewsBoxDrag(e) {
-  if (!isDraggingNewsBox) return;
-
-  try {
-    const newX = e.clientX - dragOffsetX;
-    const newY = e.clientY - dragOffsetY;
-
-    // Keep within viewport bounds with safe fallback values
-    const boxWidth = newsBox.offsetWidth || 400;
-    const boxHeight = newsBox.offsetHeight || 600;
-    const viewportWidth = window.innerWidth || 1920;
-    const viewportHeight = window.innerHeight || 1080;
-
-    const maxX = Math.max(0, viewportWidth - boxWidth);
-    const maxY = Math.max(0, viewportHeight - boxHeight);
-
-    const clampedX = Math.max(0, Math.min(newX, maxX));
-    const clampedY = Math.max(0, Math.min(newY, maxY));
-
-    newsBox.style.left = clampedX + 'px';
-    newsBox.style.top = clampedY + 'px';
-    e.stopPropagation(); // Prevent globe rotation while dragging
-  } catch (error) {
-    console.error('[News Box] Drag error:', error);
-    // Stop dragging on error
-    isDraggingNewsBox = false;
-    newsBox.style.cursor = 'move';
-    document.removeEventListener('mousemove', handleNewsBoxDrag);
-    document.removeEventListener('mouseup', handleNewsBoxDragEnd);
-  }
-}
-
-function handleNewsBoxDragEnd(e) {
-  if (isDraggingNewsBox) {
-    isDraggingNewsBox = false;
-    newsBox.style.cursor = 'move';
-    // High Fix #11: Remove listeners when dragging ends
-    document.removeEventListener('mousemove', handleNewsBoxDrag);
-    document.removeEventListener('mouseup', handleNewsBoxDragEnd);
-    e.stopPropagation(); // Prevent globe rotation after drag
-  }
-}
-
-// Draggable functionality - only active when news box is open
-function attachNewsBoxDragListeners() {
-  newsBoxHeader.addEventListener('mousedown', handleNewsBoxHeaderMouseDown);
-}
-
-function detachNewsBoxDragListeners() {
-  newsBoxHeader.removeEventListener('mousedown', handleNewsBoxHeaderMouseDown);
-  // Also clean up any active drag listeners
-  document.removeEventListener('mousemove', handleNewsBoxDrag);
-  document.removeEventListener('mouseup', handleNewsBoxDragEnd);
-  isDraggingNewsBox = false;
-}
-
-function handleNewsBoxHeaderMouseDown(e) {
-  if (e.target === newsBoxClose || e.target.tagName === 'A') return;
-
-  isDraggingNewsBox = true;
-  dragOffsetX = e.clientX - newsBox.offsetLeft;
-  dragOffsetY = e.clientY - newsBox.offsetTop;
-  newsBox.style.cursor = 'grabbing';
-
-  // Only attach listeners when actually dragging
-  document.addEventListener('mousemove', handleNewsBoxDrag);
-  document.addEventListener('mouseup', handleNewsBoxDragEnd);
-
-  e.preventDefault();
-  e.stopPropagation(); // Prevent globe rotation
-}
+// High Fix #11: Drag handlers are now defined at module level (see lines 307-377)
 
 // Close button
 newsBoxClose.addEventListener('click', () => {
@@ -825,20 +936,58 @@ newsBoxClose.addEventListener('click', () => {
 const newsTab = document.getElementById('newsTab');
 const statsTab = document.getElementById('statsTab');
 
-newsTab.addEventListener('click', () => {
+newsTab.addEventListener('click', async () => {
   if (currentTab === 'news') return;
 
   currentTab = 'news';
   newsTab.classList.add('active');
   statsTab.classList.remove('active');
 
-  // Re-render news view
-  if (currentNewsData && currentNewsData.articles) {
+  // Re-render news view or fetch if not loaded
+  if (currentNewsData && currentNewsData.articles && currentNewsData.articles.length > 0) {
+    // Articles already loaded, just render them
     if (currentView === 'feed') {
       const articlesSource = (translationEnabled && currentNewsData.translatedArticles)
         ? currentNewsData.translatedArticles
         : currentNewsData.articles;
       renderNewsFeed(articlesSource);
+    }
+  } else if (currentNewsData && currentNewsData.countryCode) {
+    // Need to fetch news for this country
+    newsBoxContent.innerHTML = '<div class="loading">Loading headlines...</div>';
+
+    try {
+      const countryCode = currentNewsData.countryCode;
+
+      // Check cache first
+      if (newsCache.has(countryCode)) {
+        const cachedArticles = newsCache.get(countryCode);
+        currentNewsData.articles = cachedArticles;
+        renderNewsFeed(cachedArticles);
+        return;
+      }
+
+      // Fetch from API
+      const response = await window.electronAPI.fetchNews(countryCode);
+
+      if (response.status === 'ok' && response.articles && response.articles.length > 0) {
+        currentNewsData.articles = response.articles;
+        newsCache.set(countryCode, response.articles);
+
+        // Translate if enabled
+        if (translationEnabled && userLanguage !== 'en') {
+          const translatedArticles = await translateArticles(response.articles);
+          currentNewsData.translatedArticles = translatedArticles;
+          renderNewsFeed(translatedArticles);
+        } else {
+          renderNewsFeed(response.articles);
+        }
+      } else {
+        newsBoxContent.innerHTML = '<div class="loading">No News<br><br>News coverage is not available for this country.</div>';
+      }
+    } catch (error) {
+      console.error('[News] Failed to fetch news:', error);
+      newsBoxContent.innerHTML = '<div class="loading">Error<br><br>Failed to load news. Please try again.</div>';
     }
   }
 });
@@ -1120,11 +1269,11 @@ async function showNewsBox(countryName, iso3Code) {
   // Store previous tab selection
   const previousTab = currentTab;
 
-  // Only reset to news tab if newsBox was not already active
+  // Only reset to stats tab if newsBox was not already active
   if (!currentNewsData) {
-    currentTab = 'news';
-    document.getElementById('newsTab').classList.add('active');
-    document.getElementById('statsTab').classList.remove('active');
+    currentTab = 'stats';
+    document.getElementById('statsTab').classList.add('active');
+    document.getElementById('newsTab').classList.remove('active');
   }
 
   // Store both ISO-3 (cleaned) and ISO-2 codes for stats and news APIs
@@ -1408,9 +1557,12 @@ function hideNewsBox() {
     complete: () => {
       // Resume auto-rotation after zoom completes
       autoRotate = true;
-      if (autoRotateCheckbox) {
-        autoRotateCheckbox.checked = true;
+      if (autoRotateBtn) {
+        autoRotateBtn.classList.add('active');
       }
+
+      // Request render after camera movement completes
+      viewer.scene.requestRender();
     }
   });
 }
@@ -1628,6 +1780,9 @@ async function updateWeatherLayer() {
       // Apply initial visibility based on saved settings
       weatherLayer.show = weatherEnabled;
 
+      // Request render after adding imagery layer
+      viewer.scene.requestRender();
+
       console.log('[Weather] Cloud layer initialized successfully');
     }
     // If layer exists, tiles will auto-update from the server
@@ -1729,6 +1884,7 @@ function extractStormCategory(description) {
 // Fix #4: Store event listener reference for cleanup
 preRenderRemoveCallback = viewer.scene.preRender.addEventListener(() => {
   rotateGlobe();
+  updatePerformanceStats();
 });
 
 // ============================================================================
@@ -1763,17 +1919,18 @@ function loadSettings() {
     weatherEnabled: true,
     autoRotate: true,
     dayNightEnabled: true,
-    translationEnabled: true
+    translationEnabled: true,
+    qualityPreset: 'balanced'  // Default quality preset
   };
 }
 
 function saveSettings() {
   try {
     const settings = {
-      weatherEnabled: weatherCheckbox.checked,
-      autoRotate: autoRotateCheckbox.checked,
-      dayNightEnabled: dayNightCheckbox.checked,
-      translationEnabled: translateCheckbox.checked
+      weatherEnabled: weatherEnabled,
+      autoRotate: autoRotate,
+      dayNightEnabled: viewer.scene.globe.enableLighting,
+      translationEnabled: translationEnabled
     };
     localStorage.setItem('earthScreensaverSettings', JSON.stringify(settings));
     console.log('[Settings] Saved settings:', settings);
@@ -1783,12 +1940,18 @@ function saveSettings() {
 }
 
 // ============================================================================
-// WEATHER TOGGLE
+// ICON TOGGLE BUTTONS
 // ============================================================================
-const weatherCheckbox = document.getElementById('weatherCheckbox');
+const weatherBtn = document.getElementById('weatherBtn');
+const autoRotateBtn = document.getElementById('autoRotateBtn');
+const dayNightBtn = document.getElementById('dayNightBtn');
+const translateBtn = document.getElementById('translateBtn');
 
-weatherCheckbox.addEventListener('change', (e) => {
-  weatherEnabled = e.target.checked;
+// Weather toggle
+weatherBtn.addEventListener('click', (e) => {
+  weatherBtn.classList.toggle('active');
+  weatherEnabled = weatherBtn.classList.contains('active');
+
   if (weatherLayer) {
     weatherLayer.show = weatherEnabled;
   } else if (weatherEnabled) {
@@ -1797,51 +1960,149 @@ weatherCheckbox.addEventListener('change', (e) => {
     updateStorms();
   }
   saveSettings();
+
+  // Request render after settings change
+  viewer.scene.requestRender();
 });
 
-// ============================================================================
-// AUTO-ROTATE TOGGLE
-// ============================================================================
-const autoRotateCheckbox = document.getElementById('autoRotateCheckbox');
+// Auto-rotate toggle
+autoRotateBtn.addEventListener('click', (e) => {
+  autoRotateBtn.classList.toggle('active');
+  autoRotate = autoRotateBtn.classList.contains('active');
 
-autoRotateCheckbox.addEventListener('change', (e) => {
-  autoRotate = e.target.checked;
   if (autoRotate) {
     lastRotateTime = Date.now(); // Reset timer to prevent jumps
   }
   saveSettings();
+
+  // Request render when toggling rotation
+  viewer.scene.requestRender();
 });
 
-// ============================================================================
-// DAY/NIGHT TOGGLE
-// ============================================================================
-const dayNightCheckbox = document.getElementById('dayNightCheckbox');
+// Day/night toggle
+dayNightBtn.addEventListener('click', (e) => {
+  dayNightBtn.classList.toggle('active');
+  viewer.scene.globe.enableLighting = dayNightBtn.classList.contains('active');
+  saveSettings();
 
-dayNightCheckbox.addEventListener('change', (e) => {
-  viewer.scene.globe.enableLighting = e.target.checked;
+  // Request render after lighting change
+  viewer.scene.requestRender();
+});
+
+// Translation toggle
+translateBtn.addEventListener('click', async (e) => {
+  translateBtn.classList.toggle('active');
+  translationEnabled = translateBtn.classList.contains('active');
+  console.log('[Translation] Translation', translationEnabled ? 'enabled' : 'disabled');
+
+  // If news is currently showing, refresh it with new translation setting
+  if (newsBox.classList.contains('active') && currentNewsData && currentNewsData.articles) {
+    console.log('[Translation] Refreshing news feed with translation:', translationEnabled);
+    await renderNewsFeed(currentNewsData.articles);
+  }
+
   saveSettings();
 });
 
 // ============================================================================
-// TRANSLATION TOGGLE
+// PERFORMANCE STATS TOGGLE
 // ============================================================================
-const translateCheckbox = document.getElementById('translateCheckbox');
+const showStatsCheckbox = document.getElementById('showStatsCheckbox');
+const performanceStatsDiv = document.getElementById('performanceStats');
+
+showStatsCheckbox.addEventListener('change', (e) => {
+  performanceStatsEnabled = e.target.checked;
+  performanceStatsDiv.style.display = performanceStatsEnabled ? 'block' : 'none';
+
+  if (performanceStatsEnabled) {
+    // Reset counters when enabling
+    renderCount = 0;
+    lastFrameTime = performance.now();
+    frameTimeSum = 0;
+    frameTimeCount = 0;
+  }
+});
+
+// ============================================================================
+// QUALITY PRESET SELECTOR
+// ============================================================================
+const qualityPresetSelect = document.getElementById('qualityPreset');
+
+qualityPresetSelect.addEventListener('change', (e) => {
+  const preset = e.target.value;
+  let settings;
+
+  switch(preset) {
+    case 'high_quality':
+      settings = CONFIG.PERFORMANCE.PRESETS.HIGH_QUALITY;
+      break;
+    case 'high_performance':
+      settings = CONFIG.PERFORMANCE.PRESETS.HIGH_PERFORMANCE;
+      break;
+    default:
+      settings = CONFIG.PERFORMANCE.PRESETS.BALANCED;
+  }
+
+  // Apply settings to globe
+  viewer.scene.globe.maximumScreenSpaceError = settings.maximumScreenSpaceError;
+  viewer.scene.globe.tileCacheSize = settings.tileCacheSize;
+
+  console.log('[Performance] Applied', preset, 'preset:', settings);
+
+  // Save to localStorage
+  try {
+    const savedSettings = JSON.parse(localStorage.getItem('earthScreensaverSettings') || '{}');
+    savedSettings.qualityPreset = preset;
+    localStorage.setItem('earthScreensaverSettings', JSON.stringify(savedSettings));
+  } catch (error) {
+    console.warn('[Settings] Failed to save quality preset:', error);
+  }
+
+  // Request render to show changes
+  viewer.scene.requestRender();
+});
 
 // ============================================================================
 // APPLY SAVED SETTINGS ON STARTUP
 // ============================================================================
 const savedSettings = loadSettings();
 
-// Apply to checkboxes
-weatherCheckbox.checked = savedSettings.weatherEnabled;
-autoRotateCheckbox.checked = savedSettings.autoRotate;
-dayNightCheckbox.checked = savedSettings.dayNightEnabled;
-translateCheckbox.checked = savedSettings.translationEnabled;
+// Apply to icon toggle buttons
+if (savedSettings.weatherEnabled) {
+  weatherBtn.classList.add('active');
+} else {
+  weatherBtn.classList.remove('active');
+}
+
+if (savedSettings.autoRotate) {
+  autoRotateBtn.classList.add('active');
+} else {
+  autoRotateBtn.classList.remove('active');
+}
+
+if (savedSettings.dayNightEnabled) {
+  dayNightBtn.classList.add('active');
+} else {
+  dayNightBtn.classList.remove('active');
+}
+
+if (savedSettings.translationEnabled) {
+  translateBtn.classList.add('active');
+} else {
+  translateBtn.classList.remove('active');
+}
 
 // Apply to global variables
 weatherEnabled = savedSettings.weatherEnabled;
 autoRotate = savedSettings.autoRotate;
 translationEnabled = savedSettings.translationEnabled;
+
+// Apply saved quality preset
+if (savedSettings.qualityPreset && qualityPresetSelect) {
+  qualityPresetSelect.value = savedSettings.qualityPreset;
+  // Trigger change event to apply the preset
+  qualityPresetSelect.dispatchEvent(new Event('change'));
+}
 
 // Apply day/night lighting to viewer (if viewer is already initialized)
 if (viewer && viewer.scene && viewer.scene.globe) {
@@ -1868,46 +2129,7 @@ weatherUpdateInterval = setInterval(() => {
   }
 }, CONFIG.WEATHER_UPDATE_INTERVAL);
 
-// ============================================================================
-// TRANSLATION TOGGLE EVENT HANDLER
-// ============================================================================
-translateCheckbox.addEventListener('change', async (e) => {
-  translationEnabled = e.target.checked;
-  console.log('[Translation] Translation', translationEnabled ? 'enabled' : 'disabled');
-
-  // If news is currently showing, refresh it with new translation setting
-  if (newsBox.classList.contains('active') && currentNewsData && currentNewsData.articles) {
-    // Get source language from stored data or country code
-    const sourceLang = currentNewsData.sourceLang || COUNTRY_LANGUAGES[currentNewsData.countryCode] || 'en';
-
-    if (translationEnabled && sourceLang !== userLanguage) {
-      // Check if we already have cached translations
-      if (currentNewsData.translatedArticles) {
-        console.log('[Translation] Using cached translations');
-        renderNewsFeed(currentNewsData.translatedArticles);
-      } else {
-        // Translate for the first time
-        console.log('[Translation] Translating articles for the first time');
-        newsBoxContent.innerHTML = '<div class="loading">Translating headlines...</div>';
-
-        const articlesToTranslate = currentNewsData.articles.slice(0, 10);
-        const translatedArticles = await Promise.all(
-          articlesToTranslate.map((article, index) =>
-            translateArticle(article, sourceLang, userLanguage)
-              .then(translated => translated || article) // Fall back to original if translation returns null
-          )
-        );
-
-        currentNewsData.translatedArticles = translatedArticles;
-        renderNewsFeed(translatedArticles);
-      }
-    } else {
-      // Show original version
-      renderNewsFeed(currentNewsData.articles);
-    }
-  }
-  saveSettings();
-});
+// Translation toggle event handler now defined with icon buttons above (lines 1993-2005)
 
 // ============================================================================
 // CONTROLS PANEL DRAGGING
@@ -1983,7 +2205,9 @@ controlsPanel.addEventListener('mousedown', (e) => {
   // Don't start drag if clicking on interactive elements
   if (e.target.tagName === 'INPUT' ||
       e.target.tagName === 'BUTTON' ||
-      e.target.tagName === 'LABEL') {
+      e.target.tagName === 'LABEL' ||
+      e.target.tagName === 'SELECT' ||
+      e.target.tagName === 'OPTION') {
     return;
   }
 

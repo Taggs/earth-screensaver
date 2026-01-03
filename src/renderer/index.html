@@ -323,6 +323,49 @@
       font-size: 12px;
     }
 
+    /* Icon toggle row */
+    .icon-toggle-row {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin: 16px 0;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .icon-toggle {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      padding: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: rgba(255, 255, 255, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icon-toggle:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .icon-toggle.active {
+      background: rgba(52, 152, 219, 0.3);
+      border-color: rgba(52, 152, 219, 0.6);
+      color: rgba(255, 255, 255, 0.95);
+    }
+
+    .icon-toggle:active {
+      transform: translateY(0);
+    }
+
+    .icon-toggle svg {
+      pointer-events: none;
+    }
+
     #closeButton {
       width: 100%;
       margin-top: 12px;
@@ -523,6 +566,32 @@
 
   <div id="controlsPanel">
     <h3>Controls</h3>
+
+    <!-- Icon toggle buttons -->
+    <div class="icon-toggle-row">
+      <button id="autoRotateBtn" class="icon-toggle active" title="Auto-rotate globe" aria-label="Auto-rotate globe">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 6v6l4 2"/>
+        </svg>
+      </button>
+      <button id="dayNightBtn" class="icon-toggle active" title="Day/night boundaries" aria-label="Day/night boundaries">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+      <button id="weatherBtn" class="icon-toggle active" title="Weather overlay" aria-label="Weather overlay">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
+        </svg>
+      </button>
+      <button id="translateBtn" class="icon-toggle active" title="Translate news" aria-label="Translate news">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/>
+        </svg>
+      </button>
+    </div>
+
     <div class="control-item">
       <span class="control-key">Mouse Drag</span>
       <span class="control-desc">Rotate globe</span>
@@ -535,30 +604,50 @@
       <span class="control-key">Right Click</span>
       <span class="control-desc">Pan view</span>
     </div>
-    <div class="checkbox-item">
-      <input type="checkbox" id="autoRotateCheckbox" checked>
-      <label for="autoRotateCheckbox">Auto-rotate globe</label>
+
+    <!-- Quality preset selector -->
+    <div style="margin: 12px 0; padding: 8px 0; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+      <label for="qualityPreset" style="display: block; margin-bottom: 6px; font-size: 12px; color: rgba(255, 255, 255, 0.9); pointer-events: none;">
+        Quality Preset
+      </label>
+      <select id="qualityPreset" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: white; font-size: 12px; cursor: pointer; pointer-events: auto;">
+        <option value="balanced" selected>Balanced</option>
+        <option value="high_quality">High Quality</option>
+        <option value="high_performance">High Performance</option>
+      </select>
     </div>
+
+    <!-- Performance stats toggle -->
     <div class="checkbox-item">
-      <input type="checkbox" id="dayNightCheckbox" checked>
-      <label for="dayNightCheckbox">Day/night boundaries</label>
+      <input type="checkbox" id="showStatsCheckbox">
+      <label for="showStatsCheckbox">Show performance stats</label>
     </div>
-    <div class="checkbox-item">
-      <input type="checkbox" id="weatherCheckbox" checked>
-      <label for="weatherCheckbox">Weather overlay</label>
+
+    <!-- Performance stats display -->
+    <div id="performanceStats" style="display: none; margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.5); border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
+      <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 4px;">PERFORMANCE</div>
+      <div style="font-size: 12px; margin: 4px 0;">
+        <span style="color: rgba(255,255,255,0.7);">FPS:</span>
+        <span id="fpsCounter" style="color: #3498db; font-weight: 600;">60</span>
+      </div>
+      <div style="font-size: 12px; margin: 4px 0;">
+        <span style="color: rgba(255,255,255,0.7);">Frame Time:</span>
+        <span id="frameTimeCounter" style="color: #3498db; font-weight: 600;">16ms</span>
+      </div>
+      <div style="font-size: 12px; margin: 4px 0;">
+        <span style="color: rgba(255,255,255,0.7);">Render Count:</span>
+        <span id="renderCounter" style="color: #3498db; font-weight: 600;">0</span>
+      </div>
     </div>
-    <div class="checkbox-item">
-      <input type="checkbox" id="translateCheckbox" checked>
-      <label for="translateCheckbox">Translate news</label>
-    </div>
+
     <button id="closeButton">Close Screensaver</button>
   </div>
   
   <div id="newsBox">
     <div id="newsBoxHeader">
       <div id="newsBoxTabs">
-        <button id="newsTab" class="tab-button active">News</button>
-        <button id="statsTab" class="tab-button">Stats</button>
+        <button id="statsTab" class="tab-button active">Stats</button>
+        <button id="newsTab" class="tab-button">News</button>
       </div>
       <h2 id="newsBoxTitle">Country Top News</h2>
       <button id="newsBoxClose">&times;</button>
