@@ -1,22 +1,28 @@
 /**
  * Three.js + three-globe implementation for Earth Screensaver
  * Replaces Cesium with a lightweight globe using Natural Earth data
+ *
+ * Dependencies loaded via script tags in index.html:
+ * - THREE (from three.min.js)
+ * - ThreeGlobe (from three-globe.min.js)
+ * - cities (from cities-ne.js)
  */
 
-import ThreeGlobe from 'three-globe';
-import * as THREE from 'three';
-import { cities } from './data/cities-ne.js';
+(function() {
+  'use strict';
+
+  console.log('[Globe] Script loaded, waiting for libraries...');
 
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
 const CONFIG = {
-  // Rotation speed (radians per second)
-  ROTATION_SPEED: 0.001,
+  // Rotation speed (radians per frame)
+  ROTATION_SPEED: 0.01,
 
   // Initial camera position
   INITIAL_CAMERA: {
-    position: { x: 0, y: 0, z: 400 },  // Distance from center
+    position: { x: 0, y: 0, z: 250 },  // Distance from center (closer)
     lookAt: { x: 0, y: 0, z: 0 }
   },
 
@@ -138,32 +144,36 @@ async function initializeGlobe() {
     renderer.setPixelRatio(window.devicePixelRatio);
     container.appendChild(renderer.domElement);
 
-    // Create globe
+    // Create globe with tile URL (three-globe expects a URL string, not a Texture)
     globe = new ThreeGlobe()
-      .globeImageUrl(null); // We'll set texture manually
+      .globeImageUrl('../../tiles/0/0/0.png'); // Pass URL directly
 
-    // Load and apply texture
-    const texture = await loadGlobeTexture();
-    globe.globeImageUrl(null); // Clear default
+    console.log('[Globe] Globe object created:', globe);
+    console.log('[Globe] Globe position:', globe.position);
+    console.log('[Globe] Globe scale:', globe.scale);
 
-    // Apply texture to globe material
-    const globeMaterial = globe.children[0].material;
-    globeMaterial.map = texture;
-    globeMaterial.needsUpdate = true;
+    // Wait a bit for globe to initialize its internal geometry
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     // Add globe to scene
     scene.add(globe);
 
-    // Add ambient light
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    // Add ambient light to illuminate the globe
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
     scene.add(ambientLight);
 
-    // Add directional light (sun)
-    const sunLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    sunLight.position.set(1, 0.5, 1);
+    // Add directional light (sun) - very bright
+    const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
+    sunLight.position.set(5, 3, 5);
     scene.add(sunLight);
 
+    // Add another light from opposite side
+    const backLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    backLight.position.set(-5, -3, -5);
+    scene.add(backLight);
+
     console.log('[Globe] Three-globe initialized successfully');
+    console.log('[Globe] Lights added - ambient:', ambientLight.intensity, 'sun:', sunLight.intensity);
 
     // Load countries data
     await loadCountriesData();
@@ -192,7 +202,7 @@ async function loadCountriesData() {
   try {
     console.log('[Globe] Loading countries data...');
 
-    const response = await fetch('../../src/data/countries-ne.geo.json');
+    const response = await fetch('../data/countries-ne.geo.json');
     const geojson = await response.json();
 
     countries = geojson.features;
@@ -202,8 +212,7 @@ async function loadCountriesData() {
       .polygonCapColor(() => CONFIG.COLORS.COUNTRY_FILL)
       .polygonSideColor(() => CONFIG.COLORS.COUNTRY_FILL)
       .polygonStrokeColor(() => CONFIG.COLORS.COUNTRY_STROKE)
-      .polygonAltitude(0.001)
-      .polygonStroke(true);
+      .polygonAltitude(0.001);
 
     console.log(`[Globe] Loaded ${countries.length} countries`);
 
@@ -340,11 +349,23 @@ function animate() {
 // ============================================================================
 // PUBLIC API
 // ============================================================================
-export function init() {
+function init() {
+  // Check dependencies before initializing
+  if (typeof THREE === 'undefined') {
+    throw new Error('THREE.js not loaded');
+  }
+  if (typeof ThreeGlobe === 'undefined') {
+    throw new Error('three-globe not loaded');
+  }
+  if (typeof cities === 'undefined') {
+    throw new Error('cities data not loaded');
+  }
+
+  console.log('[Globe] All dependencies loaded, initializing...');
   return initializeGlobe();
 }
 
-export function dispose() {
+function dispose() {
   if (animationFrameId) {
     cancelAnimationFrame(animationFrameId);
   }
@@ -359,12 +380,42 @@ export function dispose() {
 // ============================================================================
 // AUTO-INITIALIZE
 // ============================================================================
-// Initialize when module loads
+// Wait for libraries to load before initializing
 if (typeof window !== 'undefined') {
-  // Wait for DOM to be ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+  function tryInit() {
+    try {
+      init();
+    } catch (error) {
+      console.error('[Globe] Failed to initialize:', error);
+      document.getElementById('globeContainer').innerHTML =
+        '<div style="color: white; padding: 40px; text-align: center;">' +
+        '<h1>Error Loading Globe</h1>' +
+        '<p>' + error.message + '</p>' +
+        '</div>';
+    }
+  }
+
+  // Wait for both DOM and libraries to be ready
+  let domReady = document.readyState !== 'loading';
+  let libsReady = typeof THREE !== 'undefined' && typeof ThreeGlobe !== 'undefined';
+
+  if (domReady && libsReady) {
+    tryInit();
   } else {
-    init();
+    if (!domReady) {
+      document.addEventListener('DOMContentLoaded', function() {
+        domReady = true;
+        if (libsReady) tryInit();
+      });
+    }
+
+    if (!libsReady) {
+      window.addEventListener('libraries-loaded', function() {
+        libsReady = true;
+        if (domReady) tryInit();
+      });
+    }
   }
 }
+
+})(); // End IIFE

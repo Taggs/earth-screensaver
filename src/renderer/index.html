@@ -4,67 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Earth Screensaver</title>
-  <!-- Load Cesium locally first for fast startup, refresh from CDN in background -->
-  <script>
-    // Load local Cesium immediately for fast app startup
-    console.log('[Cesium] Loading from local...');
-    const cesiumScript = document.createElement('script');
-    cesiumScript.src = '../../node_modules/cesium/Build/Cesium/Cesium.js';
-    cesiumScript.onerror = function() {
-      console.error('[Cesium] Local loading failed, trying CDN...');
-      // Local failed, try CDN as fallback
-      const cdnScript = document.createElement('script');
-      cdnScript.src = 'https://cesium.com/downloads/cesiumjs/releases/1.113/Build/Cesium/Cesium.js';
-      cdnScript.onerror = function() {
-        console.error('[Cesium] Both local and CDN loading failed!');
-        document.getElementById('cesiumContainer').innerHTML = '<div style="color: white; padding: 40px; text-align: center;"><h1>Error Loading Cesium</h1><p>Could not load the 3D globe library. Please check your installation.</p></div>';
-      };
-      document.head.appendChild(cdnScript);
-    };
-    document.head.appendChild(cesiumScript);
-
-    // Load CSS locally
-    const cesiumCSS = document.createElement('link');
-    cesiumCSS.rel = 'stylesheet';
-    cesiumCSS.href = '../../node_modules/cesium/Build/Cesium/Widgets/widgets.css';
-    cesiumCSS.onerror = function() {
-      const cdnCSS = document.createElement('link');
-      cdnCSS.rel = 'stylesheet';
-      cdnCSS.href = 'https://cesium.com/downloads/cesiumjs/releases/1.113/Build/Cesium/Widgets/widgets.css';
-      document.head.appendChild(cdnCSS);
-    };
-    document.head.appendChild(cesiumCSS);
-
-    // After Cesium loads, optionally prefetch CDN version in background
-    // This keeps the local cache fresh without blocking startup
-    window.addEventListener('load', function() {
-      setTimeout(function() {
-        // Check if we've already cached CDN version today
-        const lastCacheCheck = localStorage.getItem('cesiumCDNLastCheck');
-        const now = new Date().toISOString().split('T')[0]; // Today's date
-
-        if (lastCacheCheck === now) {
-          console.log('[Cesium] CDN already checked today, skipping');
-          return;
-        }
-
-        console.log('[Cesium] Prefetching CDN version for browser cache...');
-        fetch('https://cesium.com/downloads/cesiumjs/releases/1.113/Build/Cesium/Cesium.js', {
-          method: 'GET',
-          cache: 'force-cache' // Use cache if available
-        })
-          .then(function(response) {
-            if (response.ok) {
-              localStorage.setItem('cesiumCDNLastCheck', now);
-              console.log('[Cesium] CDN version cached successfully');
-            }
-          })
-          .catch(function(error) {
-            console.log('[Cesium] CDN prefetch failed (offline or network issue)');
-          });
-      }, 5000); // Wait 5 seconds after load before checking CDN
-    });
-  </script>
+  <!-- Initialize Three.js and three-globe in correct order -->
+  <script type="module" src="./vendor/init-libs.js"></script>
   <style>
     * {
       margin: 0;
@@ -72,22 +13,11 @@
       box-sizing: border-box;
     }
     
-    html, body, #cesiumContainer {
+    html, body, #globeContainer {
       width: 100%;
       height: 100%;
       overflow: hidden;
       background: #000;
-    }
-    
-    /* Hide Cesium UI elements for clean screensaver look */
-    .cesium-viewer-toolbar,
-    .cesium-viewer-animationContainer,
-    .cesium-viewer-timelineContainer,
-    .cesium-viewer-bottom,
-    .cesium-viewer-fullscreenContainer,
-    .cesium-credit-logoContainer,
-    .cesium-credit-textContainer {
-      display: none !important;
     }
     
     /* Draggable news box */
@@ -558,7 +488,7 @@
   </style>
 </head>
 <body>
-  <div id="cesiumContainer"></div>
+  <div id="globeContainer"></div>
 
   <div id="companyLogo">
     <img src="" alt="Company Logo" />
@@ -657,6 +587,11 @@
     </div>
   </div>
 
-  <script type="module" src="./globe.js"></script>
+  <!-- Load UI controls FIRST - ensures Close button always works -->
+  <script src="./ui-controls.js"></script>
+  <!-- Load cities data -->
+  <script src="../data/cities-ne.js"></script>
+  <!-- Load globe initialization -->
+  <script src="./globe-threejs.js"></script>
 </body>
 </html>

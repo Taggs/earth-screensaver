@@ -21,6 +21,8 @@
     "cesium": "^1.113.0",
     "dotenv": "^16.3.1",
     "suncalc": "^1.9.0",
+    "three": "^0.182.0",
+    "three-globe": "^2.45.0",
     "xml2js": "^0.6.2"
   },
   "build": {
