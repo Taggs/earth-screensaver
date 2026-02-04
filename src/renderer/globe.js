@@ -2230,7 +2230,7 @@ controlsPanel.addEventListener('mousedown', (e) => {
 // ============================================================================
 document.addEventListener('keydown', (e) => {
   // Allow ESC for modal, otherwise exit
-  if (e.key !== 'Escape' || !newsModal.classList.contains('active')) {
+  if (e.key !== 'Escape' || !newsBox.classList.contains('active')) {
     if (window.electronAPI && e.key !== 'Escape') {
       // Uncomment for true screensaver behavior:
       // window.electronAPI.exitScreensaver();

@@ -8,7 +8,7 @@
     "dev": "electron . --dev",
     "build": "electron-builder",
     "build:win": "electron-builder --win",
-    "build:win:scr": "electron-builder --win && node scripts/create-scr.js",
+    "build:win:scr": "electron-builder --win dir && node scripts/create-scr.js",
     "build:mac": "electron-builder --mac"
   },
   "author": "Your Name <your.email@example.com>",
@@ -57,11 +57,18 @@
           "arch": [
             "x64"
           ]
+        },
+        {
+          "target": "dir",
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "requestedExecutionLevel": "asInvoker",
       "artifactName": "${productName}-Setup.${ext}",
       "sign": null,
+      "signAndEditExecutable": false,
       "signingHashAlgorithms": []
     },
     "nsis": {
